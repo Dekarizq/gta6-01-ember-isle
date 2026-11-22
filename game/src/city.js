@@ -255,6 +255,11 @@ export function cityBoxes(city) {
     boxes.push({ x: b.x, y: b.h / 2, z: b.z, w: b.w, h: b.h, d: b.d, color: b.color, yaw: 0 });
     // Window strip: a lit band across the tower's south face.
     boxes.push({ x: b.x, y: b.h * 0.62, z: b.z + b.d / 2 + 0.15, w: b.w * 0.7, h: Math.max(0.6, b.h * 0.08), d: 0.3, color: b.strip, yaw: 0 });
+    // Tall downtown towers get a second lit band on the east face, so
+    // they read as glass from the side too instead of flat slabs.
+    if (b.h > 28) {
+      boxes.push({ x: b.x + b.w / 2 + 0.15, y: b.h * 0.62, z: b.z, w: 0.3, h: Math.max(0.6, b.h * 0.08), d: b.d * 0.7, color: b.strip, yaw: 0 });
+    }
   }
   for (const s of city.signs) {
     boxes.push({ x: s.x, y: s.y, z: s.z, w: s.w, h: s.h, d: s.d, color: s.color, yaw: 0 });

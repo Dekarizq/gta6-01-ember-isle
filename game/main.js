@@ -77,8 +77,10 @@ function loop(now) {
   stepGame(game, input, dt);
   // The ferry sails, so its shot camera must track it every frame —
   // a fixed camera stares at the water where the ferry used to be.
+  // Closer and lower than the first framing, so the ferry fills ~40%
+  // of the frame with the island behind it.
   const cam = shot === 'ferry'
-    ? { eye: [game.ferry.x - 50, 20, game.ferry.z + 55], target: [game.ferry.x + 40, 6, game.ferry.z - 5] }
+    ? { eye: [game.ferry.x - 35, 12, game.ferry.z + 38], target: [game.ferry.x + 30, 8, game.ferry.z - 10] }
     : cameraOverride;
   renderGame(game, renderer, cam);
   const hs = gameHudState(game);

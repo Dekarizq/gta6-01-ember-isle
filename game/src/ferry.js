@@ -100,15 +100,26 @@ export function ferryLabel(ferry) {
 }
 
 // Render boxes for the ferry: a big white hull with a teal stripe and
-// a cabin, bobbing gently on the water.
+// a cabin, bobbing gently on the water, with a smokestack, deck lights,
+// a flag and a foam wake trailing behind it.
 export function ferryBoxes(ferry, time) {
   const bob = Math.sin((time || 0) * 0.8) * 0.3;
+  const dir = ferry.direction || 1;
   const boxes = [
-    { x: ferry.x, y: 1.2 + bob, z: ferry.z, w: 14, h: 2.4, d: 26, color: [0.92, 0.9, 0.85], yaw: 0 },
-    { x: ferry.x, y: 2.6 + bob, z: ferry.z, w: 10, h: 1.6, d: 18, color: [0.25, 0.6, 0.65], yaw: 0 },
-    { x: ferry.x, y: 4.2 + bob, z: ferry.z, w: 8, h: 1.6, d: 12, color: [0.95, 0.93, 0.85], yaw: 0 },
-    { x: ferry.x, y: 0.4 + bob, z: ferry.z, w: 14.6, h: 0.8, d: 26.6, color: [0.2, 0.35, 0.5], yaw: 0 },
+    { x: ferry.x, y: 1.2 + bob, z: ferry.z, w: 22, h: 2.4, d: 40, color: [0.92, 0.9, 0.85], yaw: 0 },
+    { x: ferry.x, y: 2.6 + bob, z: ferry.z, w: 16, h: 1.6, d: 28, color: [0.25, 0.6, 0.65], yaw: 0 },
+    { x: ferry.x, y: 4.2 + bob, z: ferry.z, w: 12, h: 1.6, d: 18, color: [0.95, 0.93, 0.85], yaw: 0 },
+    { x: ferry.x, y: 0.4 + bob, z: ferry.z, w: 22.6, h: 0.8, d: 40.6, color: [0.2, 0.35, 0.5], yaw: 0 },
+    { x: ferry.x - 6, y: 5.6 + bob, z: ferry.z - 6, w: 2.2, h: 2.4, d: 2.2, color: [0.25, 0.22, 0.2], yaw: 0 },
+    { x: ferry.x - 9, y: 3.6 + bob, z: ferry.z + 8, w: 1.2, h: 1.2, d: 1.2, color: [1.0, 0.8, 0.3], yaw: 0, noFog: true },
+    { x: ferry.x + 9, y: 3.6 + bob, z: ferry.z + 8, w: 1.2, h: 1.2, d: 1.2, color: [1.0, 0.8, 0.3], yaw: 0, noFog: true },
+    { x: ferry.x, y: 6.2 + bob, z: ferry.z - 14, w: 0.3, h: 3.2, d: 0.3, color: [0.4, 0.35, 0.3], yaw: 0 },
+    { x: ferry.x, y: 7.2 + bob, z: ferry.z - 14, w: 2.4, h: 1.4, d: 0.2, color: [0.9, 0.25, 0.3], yaw: 0 },
   ];
+  // Wake: three foam slabs trailing behind the boat, widening astern.
+  for (let i = 0; i < 3; i += 1) {
+    boxes.push({ x: ferry.x - dir * (26 + i * 9), y: 0.3, z: ferry.z, w: 9 - i, h: 0.6, d: 12 + i * 4, color: [0.9, 0.93, 0.95], yaw: 0 });
+  }
   return boxes;
 }
 

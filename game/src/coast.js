@@ -34,6 +34,10 @@ export function makeBoats(rng) {
     { x: 700, z: -160, kind: 'speedboat', color: [0.9, 0.25, 0.3] },
     { x: 980, z: 160, kind: 'fishing', color: [0.6, 0.5, 0.4] },
     { x: 1180, z: -200, kind: 'speedboat', color: [0.2, 0.6, 0.7] },
+    // Two more boats on the ferry route, so the sea is not empty when
+    // the ferry shot's camera looks toward the island.
+    { x: 620, z: 70, kind: 'fishing', color: [0.85, 0.55, 0.3] },
+    { x: 820, z: -30, kind: 'yacht', color: [0.9, 0.9, 0.85] },
   ];
   for (const d of defs) {
     boats.push({

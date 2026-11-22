@@ -62,7 +62,7 @@ export function clearWanted(police) {
   return 0;
 }
 
-function spawnCop(police, unit, px, pz) {
+export function spawnCop(police, unit, px, pz) {
   const car = makeCar(VCPD_CAR, unit.beat.x, unit.beat.z, 0, { driver: true });
   car.unit = unit;
   car.patrol = true;

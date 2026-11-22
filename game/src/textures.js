@@ -46,9 +46,9 @@ export function windowStrip(rng) {
   return hexToRgb(rng.pick(WINDOW_STRIP));
 }
 
-// Lava colour by pulse (0..1): deep red at rest, bright orange erupting.
+// Lava colour by pulse (0..1): bright red-orange at rest, bright orange erupting.
 export function lavaColor(pulse) {
-  return lerpColor([0.55, 0.08, 0.02], [1.0, 0.55, 0.12], pulse);
+  return lerpColor([0.75, 0.15, 0.02], [1.0, 0.6, 0.15], pulse);
 }
 
 // Sea colour by time of day (0..1): deep blue at noon, gold at dusk.

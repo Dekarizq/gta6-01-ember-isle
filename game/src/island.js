@@ -91,11 +91,22 @@ export function generateIsland(rng) {
       color: [0.95, 0.88, 0.7], district: 'Ember Resort',
     });
   }
-  // Night market: lantern stalls on the south shore.
+  // Night market: lantern stalls on the south shore — three in the
+  // market row, three moved to the south beach foreground, close to
+  // where the volcano shot's camera stands, so the shot's foreground
+  // is lit market life instead of empty dark sand.
   const marketGoods = ['Grilled fish', 'Obsidian charms', 'Lava lamps', 'Palm wine', 'Volcano postcards', 'Black sand jars'];
+  const stallSpots = [
+    { x: cx - 60, z: cz + 195 },
+    { x: cx - 34, z: cz + 195 },
+    { x: cx - 8, z: cz + 195 },
+    { x: cx - 105, z: cz + 238 },
+    { x: cx - 60, z: cz + 245 },
+    { x: cx + 75, z: cz + 238 },
+  ];
   for (let i = 0; i < 6; i += 1) {
     stalls.push({
-      x: cx - 60 + i * 26, z: cz + 195,
+      x: stallSpots[i].x, z: stallSpots[i].z,
       goods: marketGoods[i],
       color: rng.pick([[0.9, 0.5, 0.85], [0.95, 0.7, 0.2], [0.5, 0.8, 0.9]]),
     });
@@ -140,12 +151,54 @@ export function volcanoBoxes(pulse) {
     w: ISLAND.volcanoRadius * 0.36, h: 2, d: ISLAND.volcanoRadius * 0.36,
     color: lavaColor(pulse), yaw: 0, noFog: true,
   });
-  // The beacon: a tall pillar of lava light above the crater, visible
-  // from the ferry and the city shore through any fog.
+  // The crater rim: four bright slabs around the disc's edge, so the
+  // glow reads from a low camera instead of a disc seen edge-on.
+  const rimR = ISLAND.volcanoRadius * 0.36 * 0.55 + 4;
+  const rimColor = lavaColor(1.0);
+  boxes.push({ x: cx, y: ISLAND.volcanoHeight + 1.5, z: cz - rimR, w: 16, h: 2, d: 7, color: rimColor, yaw: 0, noFog: true });
+  boxes.push({ x: cx, y: ISLAND.volcanoHeight + 1.5, z: cz + rimR, w: 16, h: 2, d: 7, color: rimColor, yaw: 0, noFog: true });
+  boxes.push({ x: cx - rimR, y: ISLAND.volcanoHeight + 1.5, z: cz, w: 7, h: 2, d: 16, color: rimColor, yaw: 0, noFog: true });
+  boxes.push({ x: cx + rimR, y: ISLAND.volcanoHeight + 1.5, z: cz, w: 7, h: 2, d: 16, color: rimColor, yaw: 0, noFog: true });
+  // Lava flows down the flanks: stepped bright slabs, one step per
+  // terrace, on all four sides — the south flow faces the volcano
+  // shot's camera head-on. Step heights follow the terrace tops
+  // (surface ~90 at r=42, ~65 at r=78, ~40 at r=112).
+  const lava = lavaColor(1.0);
+  const flowSteps = [
+    { r: 42, y: 91 },
+    { r: 78, y: 66 },
+    { r: 112, y: 41 },
+  ];
+  for (const s of flowSteps) {
+    boxes.push({ x: cx, y: s.y, z: cz - s.r, w: 8, h: 2, d: 40, color: lava, yaw: 0, noFog: true });
+    boxes.push({ x: cx, y: s.y, z: cz + s.r, w: 8, h: 2, d: 40, color: lava, yaw: 0, noFog: true });
+    boxes.push({ x: cx + s.r, y: s.y, z: cz, w: 40, h: 2, d: 8, color: lava, yaw: 0, noFog: true });
+    boxes.push({ x: cx - s.r, y: s.y, z: cz, w: 40, h: 2, d: 8, color: lava, yaw: 0, noFog: true });
+  }
+  // The beacon: a wide pillar of lava light above the crater, visible
+  // from the ferry and the city shore through any fog, with two dimmer
+  // side pillars so the column reads as light, not a thin line.
   boxes.push({
-    x: cx, y: ISLAND.volcanoHeight + 42, z: cz,
-    w: 10, h: 84, d: 10, color: lavaColor(Math.max(pulse, 0.6)), yaw: 0, noFog: true,
+    x: cx, y: ISLAND.volcanoHeight + 55, z: cz,
+    w: 22, h: 110, d: 22, color: lavaColor(Math.max(pulse, 0.6)), yaw: 0, noFog: true,
   });
+  boxes.push({
+    x: cx - 20, y: ISLAND.volcanoHeight + 35, z: cz,
+    w: 8, h: 70, d: 8, color: lavaColor(Math.max(pulse, 0.5)), yaw: 0, noFog: true,
+  });
+  boxes.push({
+    x: cx + 20, y: ISLAND.volcanoHeight + 35, z: cz,
+    w: 8, h: 70, d: 8, color: lavaColor(Math.max(pulse, 0.5)), yaw: 0, noFog: true,
+  });
+  // Smoke: dark slabs drifting above the crater, overlapping into a
+  // plume and offset with the pulse so it looks alive against the sky.
+  for (let i = 0; i < 5; i += 1) {
+    const s = 16 + i * 2;
+    boxes.push({
+      x: cx + (i - 2) * 5 + pulse * 4, y: 100 + i * 8, z: cz - 6 + i * 3,
+      w: s, h: s * 0.7, d: s, color: [0.25, 0.22, 0.22], yaw: 0,
+    });
+  }
   return boxes;
 }
 
@@ -181,8 +234,18 @@ export function islandBoxes(island, pulse) {
   }
   boxes.push({
     x: c2.x, y: c2.height + 0.5, z: c2.z,
-    w: c2.radius * 0.4, h: 1.5, d: c2.radius * 0.4, color: lavaColor(pulse), yaw: 0, noFog: true,
+    w: c2.radius * 0.55, h: 1.5, d: c2.radius * 0.55, color: lavaColor(pulse), yaw: 0, noFog: true,
   });
+  // Lanterns by the south-beach market stalls: small gold lights, no
+  // fog, so the volcano shot's foreground glows at golden hour.
+  const lanterns = [
+    { x: cx - 105, z: cz + 236 },
+    { x: cx - 60, z: cz + 243 },
+    { x: cx + 75, z: cz + 236 },
+  ];
+  for (const l of lanterns) {
+    boxes.push({ x: l.x, y: 3, z: l.z, w: 1.2, h: 2.4, d: 1.2, color: [1.0, 0.8, 0.3], yaw: 0, noFog: true });
+  }
   // The island ground itself is drawn by the world loop as slabs; the
   // ring road is a dark strip around the volcano.
   const roads = islandRoadPoints();

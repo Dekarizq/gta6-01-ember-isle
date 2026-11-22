@@ -10,7 +10,7 @@
 import { makeRng, clamp, wrapAngle } from './random.js';
 import { WORLD, PLAYER, VEHICLES, ISLAND_VEHICLES, WEAPONS, RADIO_STATIONS, ECONOMY, RESPECT_RANKS } from './config.js';
 import { generateCity, cityBoxes, roadLines, roadCross, hitsBuilding, resolveBuildingCollision, nearestLandmark, citySize } from './city.js';
-import { ISLAND, generateIsland, islandBoxes, volcanoBoxes, islandDistrictAt, islandRoadPoints, insideVolcano } from './island.js';
+import { ISLAND, generateIsland, islandBoxes, islandDistrictAt, islandRoadPoints, insideVolcano } from './island.js';
 import { FERRY_TERMINAL, ISLAND_DOCK, coastPoints, makeBoats, coastBoxes, inSea } from './coast.js';
 import { makeCar, carTopSpeed, stepCar, makeTraffic, stepTraffic, carBoxes, nearestCar, carDisplayName, vehicleDef } from './vehicles.js';
 import { makeCrowd, stepPedestrians, pedBoxes, nearestPed } from './pedestrians.js';
@@ -136,9 +136,10 @@ export function setToast(game, msg) {
 
 // ------------------------------------------------------------ sky & fog
 // The sky follows the day: golden hour is warm gold, night is deep
-// blue, the storm is grey. Fog is the same colour, near 60m, far
-// 520m — far enough that the volcano cone (seen from 300m on the
-// beach) stays visible, with its no-fog lava beacon glowing above it.
+// blue, the storm is grey. Fog is the same colour, near 120m, far
+// 1100m — far enough that the volcano cone (seen from 260m on the
+// beach) and the island from the ferry (~600m) stay sharp, with haze
+// only on the far horizon, and the no-fog lava beacon glowing above it.
 export function skyAndFog(game) {
   const w = game.weather;
   if (isNight(w)) {
@@ -158,7 +159,7 @@ export function skyAndFog(game) {
   if (isGoldenHour(w)) {
     return {
       clear: [0.99, 0.68, 0.38],
-      fog: [0.98, 0.72, 0.45],
+      fog: [0.96, 0.6, 0.42],
       sun: [1.0, 0.85, 0.5],
     };
   }
@@ -188,9 +189,13 @@ export function stepGame(game, input, dt) {
     }
   }
   stepEffects(game.effects, dt);
-  // The lava breathes: a few sparks off the crater every second.
+  // The lava breathes: sparks off the crater every second, three
+  // bursts a second while the volcano is erupting hard (pulse > 0.7).
   if (game.time % 1 < dt) {
-    spawnLavaSparks(game.effects, ISLAND.x + game.rng.range(-20, 20), 88, ISLAND.z + game.rng.range(-20, 20));
+    const bursts = w.lavaPulse > 0.7 ? 3 : 1;
+    for (let i = 0; i < bursts; i += 1) {
+      spawnLavaSparks(game.effects, ISLAND.x + game.rng.range(-20, 20), 88, ISLAND.z + game.rng.range(-20, 20));
+    }
   }
   if (game.state === 'title') {
     if (input && (keyPressed(input, 'Enter') || input.mousePressed)) {
@@ -666,8 +671,8 @@ function advanceMission(game, m) {
 export function renderGame(game, renderer, cameraOverride) {
   const sky = skyAndFog(game);
   const cam = cameraOverride || thirdPersonCamera(game.player.x, game.player.z, game.cameraAngle, 14, 7);
-  const fogNear = 60;
-  const fogFar = 520;
+  const fogNear = 120;
+  const fogFar = 1100;
   renderer.begin(cam.eye, cam.target, sky.fog, fogNear, fogFar, sky.clear);
   const w = game.weather;
   // Ground slabs.
@@ -683,16 +688,52 @@ export function renderGame(game, renderer, cameraOverride) {
     }
   }
   renderer.ground(0, 285, 460, 150, 0, [0.85, 0.72, 0.5]); // Sunset Beach sand
-  renderer.ground(900, 0, 1300, 900, -0.5, [0.16, 0.32, 0.45]); // the Sunset Sea
+  // The Sunset Sea in three bands: deep blue north and south, and a warm
+  // sunset-reflection band down the ferry route in the middle, so the
+  // water reads as a sunset sea instead of flat fog-grey.
+  renderer.ground(900, -255, 1300, 390, -0.5, [0.25, 0.35, 0.55]); // north water
+  renderer.ground(900, 0, 1300, 100, -0.45, [0.72, 0.4, 0.24]); // sun path
+  renderer.ground(900, 255, 1300, 390, -0.5, [0.16, 0.32, 0.45]); // south water
+  // Sun glints: small gold slabs scattered on the sun path.
+  const glintX = [420, 560, 700, 840, 980, 1100];
+  for (let i = 0; i < glintX.length; i += 1) {
+    renderer.ground(glintX[i], i % 2 === 0 ? -25 : 30, 46, 10, -0.38, [1.0, 0.8, 0.4]);
+  }
   renderer.ground(ISLAND.x, ISLAND.z, 560, 560, 0, [0.2, 0.18, 0.17]); // island ground
   renderer.ground(ISLAND.x, ISLAND.z - 210, 520, 110, 0.02, [0.1, 0.09, 0.09]); // black sand beach
-  // The sun disc — a bright pillar on the horizon, no fog.
-  const sunA = 0.5;
-  renderer.pillar(game.player.x + Math.sin(sunA) * 400, 60, game.player.z + Math.cos(sunA) * 400, 26, 26, 2, sky.sun);
-  // The lava beacon — a tall glowing pillar above the crater, no fog,
-  // so the volcano is visible from the city side of the sea.
+  // The sun disc — a bright cube on the horizon, no fog, placed along
+  // the camera's view direction (offset to the side for composition)
+  // so it is in frame in every shot instead of lost outside it. The
+  // offset and height are staged per shot (game.sunOff / game.sunY,
+  // set by shots.js): high enough (y 110) to clear the volcano's
+  // silhouette and the city towers, far enough to the side (380m) to
+  // sit beside the volcano instead of hidden behind it, and nearly
+  // straight ahead (40m) in the city shot, where it must sit in the
+  // street slot between the towers. The halo is a wider, dimmer slab
+  // behind the disc; the disc's own faces sit in front of it, so the
+  // halo reads as a glow ring around the sun.
+  const sunDx = cam.target[0] - cam.eye[0];
+  const sunDy = cam.target[1] - cam.eye[1];
+  const sunDz = cam.target[2] - cam.eye[2];
+  const sunDl = Math.sqrt(sunDx * sunDx + sunDy * sunDy + sunDz * sunDz) || 1;
+  const sunUx = sunDx / sunDl;
+  const sunUz = sunDz / sunDl;
+  const sunRx = sunUz;
+  const sunRz = -sunUx;
+  const sunOff = game.sunOff != null ? game.sunOff : 380;
+  const sunY = game.sunY != null ? game.sunY : 110;
+  const sunX = cam.eye[0] + sunUx * 800 + sunRx * sunOff;
+  const sunZ = cam.eye[2] + sunUz * 800 + sunRz * sunOff;
+  // Face the camera: thin slabs seen face-on read as a flat sun disc
+  // with a glow ring, while an axis-aligned cube reads as a floating
+  // box from oblique angles.
+  const sunYaw = Math.atan2(cam.eye[0] - sunX, cam.eye[2] - sunZ);
+  renderer.box(sunX, sunY, sunZ, 120, 120, 2, [1.0, 0.7, 0.4], sunYaw, true);
+  renderer.box(sunX, sunY, sunZ, 62, 62, 6, sky.sun, sunYaw, true);
+  // The lava beacon above the crater lives in island.js (volcanoBoxes):
+  // a wide no-fog column, so the volcano is visible from the city side
+  // of the sea. No second pillar here — one column, no doubling.
   const pulse = w.lavaPulse;
-  renderer.pillar(ISLAND.x, 88 + 18 * pulse, ISLAND.z, 8, 36 + 24 * pulse, 8, [1.0, 0.35 + 0.2 * pulse, 0.05]);
   // The GPS marker: a gold pillar over the current objective — only
   // while playing, never on the title screen (the first step sits
   // under the player's feet and the pillar would fill the title).
@@ -712,8 +753,8 @@ export function renderGame(game, renderer, cameraOverride) {
 export function collectBoxes(game) {
   const boxes = [];
   boxes.push(...cityBoxes(game.city));
+  // islandBoxes already includes volcanoBoxes — never call it twice.
   boxes.push(...islandBoxes(game.island, game.weather.lavaPulse));
-  boxes.push(...volcanoBoxes(game.weather.lavaPulse));
   boxes.push(...coastBoxes(game.coast, game.boats, game.time));
   boxes.push(...businessBoxes(game.business, game.time));
   boxes.push(...islandBusinessBoxes(game.islandBusiness, game.time));
