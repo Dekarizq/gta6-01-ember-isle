@@ -12,18 +12,22 @@ export function buildHud(document) {
       <div id="health-bar"><div id="health-fill"></div><span id="health-text">100</span></div>
       <div id="wanted"></div>
       <div id="rank">Rookie Driver</div>
+      <div id="heat"></div>
     </div>
     <div id="mission-panel">
       <div id="mission-title">MISSION</div>
       <div id="mission-brief"></div>
       <div id="mission-count"></div>
       <div id="respect-line"></div>
+      <div id="systems-line"></div>
     </div>
     <div id="top-right">
       <div id="clock">17:24</div>
       <div id="weather">GOLDEN HOUR</div>
       <div id="radio">SUNSET 88.1</div>
       <div id="coins">Sun Coins 0/${SUN_COINS_TOTAL}</div>
+      <div id="topspeed"></div>
+      <div id="income"></div>
     </div>
     <div id="speed-box"><span id="speed">0</span><span id="speed-unit">mph</span></div>
     <canvas id="minimap" width="180" height="180"></canvas>
@@ -67,6 +71,11 @@ export function updateHud(state, document) {
   $('wanted').textContent = '★'.repeat(p.wanted) + '☆'.repeat(Math.max(0, 6 - p.wanted));
   $('wanted').style.color = p.wanted > 0 ? '#ff3b30' : '#ffd23c';
   $('rank').textContent = p.rank;
+  // Round 10 — wanted heat bar and the active side job, so Mara can see
+  // how hot the chase is and how long the job has left, at a glance.
+  const heat = Math.round(state.heat || 0);
+  $('heat').textContent = p.wanted > 0 ? `HEAT ${heat}%` : '';
+  $('heat').style.color = heat > 60 ? '#ff3b30' : heat > 25 ? '#ffb02e' : '#ffd23c';
   const m = currentMission(state);
   if (m) {
     $('mission-title').textContent = `MISSION ${m.id}/20 — ${m.title.toUpperCase()}`;
@@ -80,12 +89,27 @@ export function updateHud(state, document) {
   // Respect & crew line — always visible in the mission panel.
   const crewNames = (state.crew || []).map(n => n.split(' ')[0]).join(' · ');
   $('respect-line').textContent = `RESPECT ${state.respect || 0} · CREW: ${crewNames || '—'}`;
+  // Round 10 — living-world readout: what the new systems are doing
+  // right now (traffic count, golden-hour light, weather). A running
+  // side job takes over this line instead, with its countdown.
+  const sun = state.dayTime < 18.6 ? 'GOLDEN HOUR' : 'DUSK LIGHTS ON';
+  if (state.sideJob) {
+    $('systems-line').textContent = `${state.sideJob.name.toUpperCase()} — ${Math.ceil(state.sideJob.left)}s LEFT · $${state.sideJob.pay}`;
+  } else {
+    $('systems-line').textContent = `${sun} · TRAFFIC ${state.cars.length} CARS · SURF + MIST LIVE · DUST ${state.particles.length}`;
+  }
   $('clock').textContent = fmtClock(state.dayTime);
   $('weather').textContent = state.weather === 'hurricane' ? '⚡ HURRICANE' : state.dayTime < 6 || state.dayTime > 19 ? 'NIGHT' : 'GOLDEN HOUR';
   const st = RADIO[state.radioIndex];
   $('radio').textContent = (state.radioOn ? '♪ ' : '♪ muted ') + st.name + ' — ' + st.dj;
   $('coins').textContent = `Sun Coins ${state.coinsCollected}/${SUN_COINS_TOTAL}`;
   $('speed').textContent = Math.round(Math.abs(p.speed || 0) * 1.6);
+  // Round 10 — session top speed, so Mara can see the fastest she has
+  // ever driven this run, right under the coin count.
+  $('topspeed').textContent = `TOP ${Math.round((state.stats.topSpeed || 0) * 1.6)} mph`;
+  // Round 10 — daily business income, so owning shops feels like it pays.
+  const income = state.businesses.reduce((s, b) => s + b.income * b.level, 0);
+  $('income').textContent = income > 0 ? `+$${income}/day businesses` : '';
   const toastEl = $('toast');
   toastEl.textContent = state.time < state.toastUntil ? state.toast : '';
   toastEl.style.opacity = state.time < state.toastUntil ? '1' : '0';
@@ -141,6 +165,12 @@ function drawMinimap(state, canvas) {
   // Police.
   ctx.fillStyle = '#3b82f6';
   for (const c of state.police) { ctx.fillRect(X(c.x) - 2, Z(c.z) - 2, 4, 4); }
+  // Round 10 — the ferry (orange square) and Sunset Pier (gold ring) on
+  // the minimap, so the boat is findable without opening the big map.
+  ctx.fillStyle = '#ff7a1f';
+  ctx.fillRect(X(state.ferry.x) - 3, Z(state.ferry.z) - 3, 6, 6);
+  ctx.strokeStyle = '#ffd23c';
+  ctx.beginPath(); ctx.arc(X(-215), Z(60), 5, 0, Math.PI * 2); ctx.stroke();
   // Player arrow.
   ctx.save();
   ctx.translate(X(state.player.x), Z(state.player.z));

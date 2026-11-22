@@ -20,6 +20,40 @@ and a night market, reached by ferry from Sunset Pier.
 **You are Mara Voss**, a driver returning home to take the throne from the
 Tide Kings.
 
+## Round 10 — a living golden hour
+
+This round rewrites the world so it moves instead of posing:
+
+- **Dynamic golden-hour light** — the low western sun throws long
+  east-pointing shadows off every tower, car and pedestrian, window light
+  warms as dusk falls, and rooftop beacons + neon signs switch on
+- **Traffic AI** — cars brake for the car ahead, change lane to overtake,
+  and turn at grid intersections; brake lights glow when they slow
+- **Walking pedestrians** — legs and arms swing with a real stride phase
+- **Living surf & coastal mist** — foam lines roll up Sunset Beach and the
+  isle's black-sand shore, warm fog bands drift over the strait
+- **Exhaust & dust** — fast cars trail puffs; handbrake slides kick up dust
+- **Air One repainted** — bright rescue white with a red cheatline and a
+  gold VCPD star, so the helicopter reads instantly against the sky
+- **Detailed ferry** — portholes, waterline, window bands, funnel, lifeboat,
+  deck rails, flag mast moved to the stern so the bow deck stays open
+- **Layered volcano** — basalt foot, warm mid-rock, glowing lava bands at
+  the rim, per-face grain instead of a flat brown cone
+- **Beach dressing** — striped umbrellas, surfboards, ferry-route buoys,
+  pier crates and benches; ferry horn on departure (H), seagulls, touch
+  controls for phone play
+- **Side jobs & wanted heat** — taxi, courier, vigilante and tour jobs
+  (T), near-miss respect bonuses, and a heat meter that cools when Mara
+  hides; ride the ferry across the strait on foot
+- **Sky & harbour life** — drifting golden-hour clouds, circling seagulls,
+  fishing-village huts, resort blocks, dock cranes, tower billboards and
+  zebra crossings
+- **Docks, kites & chases** — stacked shipping containers, bus stops,
+  beach kites and a volleyball court, buoy foam rings, fallen coconuts;
+  police PIT maneuvers and rams, pedestrians who flee a 3-star chase
+- **Finishing touches** — isle ring road, street murals, a beach bonfire,
+  tide pools, idle hints, businesses that grow with the story
+
 ## What is in the game
 
 - 20 story missions (12 in the city, 8 on the isle), ending in "Queen of Ember"
@@ -58,11 +92,13 @@ Rendered headless from this build (seed 1, 1280x720):
 
 1. `1-start.jpg` — 5-star chase cover on Sunset Mile: wanted 3, Air One
    spotlight, roadblock + spike strip, traffic, peds, Mission 5/20
-2. `2-city.jpg` — wanted-5 chase on Palm Court, Mission 8/20, Rook in crew
+2. `2-city.jpg` — wanted-5 chase up the Sunset Beach road (Round 10):
+   surf and umbrellas on the right, palms and towers on the left, the
+   ferry offshore, bright Air One over the sea, Mission 8/20 Palm Court Drift
 3. `3-volcano.jpg` — Crater Run in the Ember Rod, patrol buggies behind,
    Mission 18/20, full crew
-4. `4-ferry.jpg` — the Sunset GT parked on the ferry deck to Ember Isle,
-   Air One overhead, Mission 11/20
+4. `4-ferry.jpg` — the Sunset GT parked on the ferry's open bow deck to
+   Ember Isle, Air One overhead, Mission 11/20
 
 ## License
 

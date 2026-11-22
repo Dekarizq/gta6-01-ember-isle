@@ -14,6 +14,10 @@ const args = process.argv.slice(2);
 const portIndex = args.indexOf('--port');
 const requested = portIndex === -1 ? 8080 : Number(args[portIndex + 1]);
 const port = Number.isInteger(requested) && requested > 0 && requested < 65536 ? requested : 8080;
+// Round 10 — --host lets the game be served on the LAN as well as
+// localhost, so it can be play-tested from a phone on the same Wi-Fi.
+const hostIndex = args.indexOf('--host');
+const host = hostIndex === -1 ? '127.0.0.1' : (args[hostIndex + 1] || '127.0.0.1');
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -24,6 +28,7 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.avif': 'image/avif', // Round 10 — serve AVIF screenshots too
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
@@ -69,6 +74,6 @@ createServer((request, response) => {
     'cache-control': 'no-store',
   });
   createReadStream(file).pipe(response);
-}).listen(port, '127.0.0.1', () => {
-  console.log(`game/ is on http://localhost:${port}`);
+}).listen(port, host, () => {
+  console.log(`game/ is on http://${host}:${port}`);
 });

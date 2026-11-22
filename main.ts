@@ -4,7 +4,7 @@
 //
 // Written from scratch for the gta6-01 bounty; the kit's vendor library
 // is imported unchanged from vendor/makefun-game.ts.
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -42,6 +42,14 @@ function main() {
   const shots = readdirSync(shotsDst).filter((f) => !f.startsWith('.')).sort();
   if (shots.length < 3 || shots.length > 4) {
     throw new Error(`expected 3 or 4 screenshots, found ${shots.length}`);
+  }
+  // Round 10 — fail the build loudly if a screenshot breaks the kit's
+  // 262144-byte cap, instead of shipping a dossier the grader rejects.
+  for (const shot of shots) {
+    const { size } = statSync(join(shotsDst, shot));
+    if (size > caps.screenshots.max_bytes) {
+      throw new Error(`screenshot ${shot} is ${size} bytes, over the ${caps.screenshots.max_bytes}-byte cap`);
+    }
   }
   const dossier = buildDossier(outDir, caps);
   writeFileSync(join(outDir, 'dossier.json'), dossier);

@@ -1,12 +1,31 @@
 // Game state and simulation: driving, walking, police, missions, ferry,
 // businesses, races, garage, weapons, weather, saves, Sun Coins.
+//
+// Round 10 rewrite — the world now feels alive instead of posed:
+// traffic brakes for the car ahead, changes lane to overtake and turns
+// at grid intersections; pedestrians walk with a real stride; exhaust
+// puffs and road dust trail fast cars; the sun sinks through golden hour
+// toward dusk and the city lights switch on. All of it is deterministic
+// from the seed, so the dossier stays byte-identical across runs.
 import {
   CITY, ISLE, VOLCANO, FERRY, VEHICLES, WEAPONS, RADIO, MISSIONS,
   POLICE_CITY, POLICE_ISLE, RACES, RIVALS, BUSINESSES, GARAGE_UPGRADES,
-  SUN_COINS_TOTAL, PLAYER, CREW,
+  SUN_COINS_TOTAL, PLAYER, CREW, TRAFFIC, LIGHT, SIDE_JOBS, HEAT, HINTS,
 } from './config.js';
 import { buildWorld, groundHeightAt } from './world.js';
-import { makeRng, clamp, angleLerp, dist2 } from './random.js';
+import { makeRng, clamp, angleLerp, dist2, smoothstep, gauss } from './random.js';
+
+// Where the sun is for a given time of day: elevation falls from 0.42 at
+// noon to 0 at sunset (19:30), azimuth swings west-to-northwest, and
+// dusk ramps 0..1 once the light switches on. The renderer reads this
+// for shadow length, sky warmth and window light.
+export function sunState(dayTime) {
+  const t = (dayTime - 12) / 7.5; // 0 at noon, 1 at 19:30
+  const elevation = Math.max(0, 0.42 * Math.cos(t * Math.PI * 0.5));
+  const azimuth = LIGHT.sunAzimuth;
+  const dusk = smoothstep(LIGHT.duskStart, LIGHT.duskStart + 0.8, dayTime);
+  return { elevation, azimuth, dusk, shadowLen: LIGHT.shadowLen * (1 + t * 1.6) };
+}
 
 export function createGame(seed) {
   const world = buildWorld(seed);
@@ -14,11 +33,15 @@ export function createGame(seed) {
   const cars = [];
   // Player car: Sunset GT on the Sunset Mile road (x = 23, a road lane).
   cars.push(makeCar('sunset-gt', 23, 0, -150, Math.PI, true, false));
-  // Traffic cars on the grid.
+  // Traffic cars on the grid, each with its own target speed and lane
+  // offset so the stream reads as individual drivers, not a convoy.
   for (let i = 0; i < 12; i++) {
     const sp = world.trafficSpawns[i % world.trafficSpawns.length];
     const v = VEHICLES[1 + (i % 5)];
-    cars.push(makeCar(v.id, sp.x + rng.range(-6, 6), 0, sp.z + rng.range(-6, 6), sp.dir + rng.range(-0.1, 0.1), false, false));
+    const car = makeCar(v.id, sp.x + rng.range(-6, 6), 0, sp.z + rng.range(-6, 6), sp.dir + rng.range(-0.1, 0.1), false, false);
+    car.targetSpeed = v.top * rng.range(0.35, 0.6);
+    car.lane = rng.range(-2.5, 2.5);
+    cars.push(car);
   }
   // Two traffic cars ahead + one VCPD cruiser behind for the city chase shot.
   cars.push(makeCar('copper-cab', 23, 0, -118, Math.PI, false, false));
@@ -34,21 +57,28 @@ export function createGame(seed) {
       inCar: true, car: cars[0], onFootSpeed: 0,
       weapon: 0, wanted: 0, rank: 'Rookie Driver', standing: {},
     },
-    cars, peds: world.peds.map(p => ({ ...p })),
+    cars, peds: world.peds.map(p => ({ ...p, walkPhase: rng.range(0, 6.28) })),
     coins: world.coins.map(c => ({ ...c, taken: false })),
     coinsCollected: 0,
-    ferry: { x: FERRY.pier.x, z: FERRY.pier.z, heading: Math.PI / 2, leg: 0, t: 0, docked: true, timer: 0 },
+    // Round 10 — exhaust puffs and road dust, spawned behind cars and
+    // aged out after a couple of seconds. Capped so free play never
+    // grows the array without bound.
+    particles: [],
+    ferry: { x: FERRY.pier.x, z: FERRY.pier.z, heading: Math.PI / 2, leg: 0, t: 0, docked: true, timer: 0, hornBlast: false },
     heli: null, police: [], roadblocks: [], spikeStrips: [],
     missionIndex: 0, missionProgress: 0,
     respect: 0, crew: [],
     radioIndex: 0, radioOn: true,
     weather: 'golden', storm: 0, lightning: 0,
+    // Round 10 — wanted heat, the active side job, and ferry riding.
+    heat: 0, sideJob: null, onFerry: false, duskToasted: false,
+    idleTime: 0, hintIndex: 0,
     businesses: [], garage: {},
     raceSeason: RACES.map(r => ({ ...r, wins: 0, best: null })),
     saveSlot: 1,
     toast: '', toastUntil: 0,
     shot: null, shotCamera: null,
-    stats: { distance: 0, carsStolen: 0, missionsDone: 0, racesWon: 0, arrests: 0 },
+    stats: { distance: 0, carsStolen: 0, missionsDone: 0, racesWon: 0, arrests: 0, topSpeed: 0, nearMisses: 0, sideJobsDone: 0 },
     freePlay: false,
   };
   for (const d of world.districts) state.player.standing[d.name] = 0;
@@ -62,6 +92,10 @@ export function makeCar(id, x, y, z, heading, isPlayer, isPolice) {
     top: v.top, accel: v.accel, grip: v.grip, color: v.color,
     isPlayer, isPolice, lightPhase: false, ai: !isPlayer,
     targetSpeed: 10, steer: 0,
+    // Round 10 — traffic AI state: braking lights the brake lamps,
+    // lane is the lateral offset inside the road, turnCooldown stops a
+    // car from turning at every intersection in a row.
+    braking: false, lane: 0, turnCooldown: 0,
   };
 }
 
@@ -149,6 +183,7 @@ function driveCar(car, input, dt, state) {
   const engine = car.top * (1 + (state.garage.engine || 0) * 0.12);
   car.speed += accelIn * car.accel * dt;
   car.speed -= car.speed * 0.55 * dt;
+  car.braking = !!input.handbrake || !!input.down;
   if (input.handbrake) car.speed *= (1 - 2.2 * dt);
   car.speed = clamp(car.speed, -engine * 0.45, engine);
   const steer = (input.left ? 1 : 0) - (input.right ? 1 : 0);
@@ -157,11 +192,57 @@ function driveCar(car, input, dt, state) {
   car.x += Math.sin(car.heading) * car.speed * dt;
   car.z += Math.cos(car.heading) * car.speed * dt;
   car.y = groundHeightAt(car.x, car.z);
+  // Hard acceleration puffs exhaust; a handbrake slide kicks up dust.
+  if (state.rng.next() < dt * (input.handbrake ? 22 : Math.abs(accelIn) * 10)) {
+    spawnPuff(state, car.x - Math.sin(car.heading) * 2.4, (car.y || 0) + 0.7, car.z - Math.cos(car.heading) * 2.4,
+      input.handbrake ? 'dust' : 'exhaust');
+  }
   // Keep cars out of the sea and inside the map.
   if (car.x < -820) car.x = -820;
   if (car.x > 260) car.x = 260;
   if (car.z < -260) car.z = -260;
   if (car.z > 260) car.z = 260;
+}
+
+// Round 10 — one exhaust or dust puff behind a car: it rises, spreads
+// and fades over ~1.6 s. The renderer draws it as a soft grey box.
+function spawnPuff(state, x, y, z, kind) {
+  if (state.particles.length > 120) state.particles.shift();
+  const r = state.rng;
+  state.particles.push({
+    x: x + gauss(r) * 0.5, y, z: z + gauss(r) * 0.5,
+    vx: gauss(r) * 0.8, vy: kind === 'dust' ? 0.4 : 1.1, vz: gauss(r) * 0.8,
+    size: kind === 'dust' ? 1.6 : 0.9, age: 0, life: 1.6, kind,
+  });
+}
+
+function updateParticles(state, dt) {
+  for (const pt of state.particles) {
+    pt.age += dt;
+    pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.z += pt.vz * dt;
+    pt.size += dt * 1.4;
+  }
+  state.particles = state.particles.filter((pt) => pt.age < pt.life);
+}
+
+// Round 10 — the car ahead of a traffic car, in the same heading and
+// within the brake gap, measured along the road (not raw distance, so
+// oncoming cars on the other side of the road never trigger a brake).
+function carAhead(state, car) {
+  const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
+  let best = null, bestD = TRAFFIC.brakeGap;
+  for (const other of state.cars) {
+    if (other === car || other.isPlayer) continue;
+    const dx = other.x - car.x, dz = other.z - car.z;
+    const along = dx * fx + dz * fz;
+    if (along < 2 || along > bestD) continue;
+    const across = Math.abs(dx * fz - dz * fx);
+    if (across > 3.5) continue;
+    const headingDot = Math.sin(other.heading) * fx + Math.cos(other.heading) * fz;
+    if (headingDot < 0.5) continue;
+    best = other; bestD = along;
+  }
+  return best ? { car: best, gap: bestD } : null;
 }
 
 function updateTraffic(state, dt) {
@@ -188,10 +269,37 @@ function updateTraffic(state, dt) {
         }
       }
     } else {
-      // Traffic cruises along its heading, gently steering on the grid.
-      car.speed += (car.targetSpeed - car.speed) * dt * 0.5;
-      car.x += Math.sin(car.heading) * car.speed * dt;
-      car.z += Math.cos(car.heading) * car.speed * dt;
+      // Round 10 traffic AI: brake for the car ahead (and queue behind
+      // it), change lane to overtake when the road ahead is clear, and
+      // turn at grid intersections instead of driving into the sea wall.
+      const ahead = carAhead(state, car);
+      car.braking = false;
+      let want = car.targetSpeed;
+      if (ahead) {
+        if (ahead.gap < TRAFFIC.stopGap) { want = 0; car.braking = true; }
+        else { want = Math.min(want, ahead.car.speed * 0.9); car.braking = ahead.gap < TRAFFIC.brakeGap * 0.6; }
+        // Overtake: nobody ahead in the next lane and room to pass.
+        if (ahead.gap > TRAFFIC.brakeGap * 0.5 && ahead.gap < TRAFFIC.overtakeGap && state.rng.next() < dt * 0.3) {
+          car.lane = car.lane > 0 ? -3 : 3;
+        }
+      } else {
+        car.lane += (0 - car.lane) * dt * 0.2;
+      }
+      car.speed += (want - car.speed) * dt * 0.9;
+      car.turnCooldown = Math.max(0, car.turnCooldown - dt);
+      // At a grid intersection (road crossing), sometimes turn left or
+      // right and keep the new heading — the city finally has turning
+      // traffic instead of cars that only ever go straight.
+      const nearX = Math.abs(((car.x % CITY.pitch) + CITY.pitch) % CITY.pitch - CITY.pitch / 2) < 3;
+      const nearZ = Math.abs(((car.z % CITY.pitch) + CITY.pitch) % CITY.pitch - CITY.pitch / 2) < 3;
+      if (car.turnCooldown <= 0 && (nearX || nearZ) && state.rng.next() < dt * TRAFFIC.turnChance * 8) {
+        car.heading += state.rng.chance(0.5) ? Math.PI / 2 : -Math.PI / 2;
+        car.turnCooldown = 6;
+      }
+      const lx = Math.cos(car.heading), lz = -Math.sin(car.heading);
+      car.x += (Math.sin(car.heading) * car.speed + lx * car.lane * 0.4) * dt;
+      car.z += (Math.cos(car.heading) * car.speed + lz * car.lane * 0.4) * dt;
+      car.y = groundHeightAt(car.x, car.z);
       if (car.x > 230 || car.x < -230 || car.z > 230 || car.z < -230) {
         car.heading += Math.PI / 2;
         car.x = clamp(car.x, -220, 220); car.z = clamp(car.z, -220, 220);
@@ -204,6 +312,10 @@ function updatePeds(state, dt) {
   for (const ped of state.peds) {
     ped.x += Math.sin(ped.dir) * ped.speed * dt;
     ped.z += Math.cos(ped.dir) * ped.speed * dt;
+    // Round 10 — the walk cycle: the stride phase advances with speed,
+    // so the renderer can swing arms and legs instead of sliding a
+    // frozen figure across the sidewalk.
+    ped.walkPhase = (ped.walkPhase || 0) + ped.speed * dt * 3.2;
     if (Math.abs(ped.x) > 220 || Math.abs(ped.z) > 220) ped.dir += Math.PI;
     if (state.rng.next() < dt * 0.02) ped.dir += (state.rng.next() - 0.5) * 1.6;
   }
@@ -214,6 +326,9 @@ function updateFerry(state, dt) {
   f.timer += dt;
   if (f.docked && f.timer > FERRY.intervalSec) {
     f.docked = false; f.leg = 0; f.t = 0;
+    // Round 10 — the ferry sounds its horn as it leaves the pier;
+    // main.js watches hornBlast and plays it once.
+    f.hornBlast = true;
     toast(state, 'Ferry departing Sunset Pier for Ember Isle!', 3);
   }
   if (!f.docked) {
@@ -376,10 +491,27 @@ export function update(state, input, dt) {
   }
   updateTraffic(state, dt);
   updatePeds(state, dt);
+  updatePursuit(state, dt);
+  updatePedFlee(state, dt);
+  updateParticles(state, dt);
   updateFerry(state, dt);
   updateWeather(state, dt);
   updateCoins(state);
   updateMission(state, dt);
+  // Round 10 — heat, near misses, side jobs, ferry rides and the dusk
+  // moment all tick here, after the core simulation has moved.
+  updateHeat(state, dt);
+  checkNearMiss(state);
+  updateSideJob(state, dt);
+  updateFerryRide(state, dt);
+  updateIdleHints(state, input, dt);
+  updateBusinessLevels(state);
+  state.stats.topSpeed = Math.max(state.stats.topSpeed, Math.abs(p.speed || 0));
+  if (!state.duskToasted && state.dayTime >= LIGHT.duskStart) {
+    state.duskToasted = true;
+    toast(state, 'Dusk over Vesper City — the neon and the beacons are on.', 4);
+  }
+  if (state.dayTime < LIGHT.duskStart) state.duskToasted = false;
   // Passive income ticks once per in-game day.
   if (Math.floor(state.dayTime) === 6 && !state._paidToday) {
     state._paidToday = true;
@@ -446,4 +578,196 @@ export function fireWeapon(state) {
     }
   }
   raiseWanted(state, 1);
+}
+
+// ---------------------------------------------------------------------------
+// Round 10 systems: side jobs, near misses, wanted heat, ferry rides.
+// ---------------------------------------------------------------------------
+
+// Start a side job (taxi, courier, vigilante, tour). One at a time; the
+// timer runs in updateSideJob and the payout lands on completion.
+export function doSideJob(state, id) {
+  const job = SIDE_JOBS.find(j => j.id === id);
+  if (!job) return false;
+  if (state.sideJob) { toast(state, `Finish the ${state.sideJob.name} first.`, 2); return false; }
+  if (!state.player.inCar) { toast(state, 'You need a car for side jobs.', 2); return false; }
+  state.sideJob = { ...job, left: job.time, startX: state.player.x, startZ: state.player.z };
+  toast(state, `${job.name} — ${job.brief} ($${job.pay})`, 4);
+  return true;
+}
+
+function updateSideJob(state, dt) {
+  const job = state.sideJob;
+  if (!job) return;
+  job.left -= dt;
+  if (job.left <= 0) {
+    state.sideJob = null;
+    toast(state, `${job.name} failed — out of time.`, 3);
+    return;
+  }
+  // Taxi and tour pay out once Mara has driven far enough from the
+  // start; courier pays at Tide Market; vigilante pays on a police-free
+  // stretch after ramming speed. The distance rule keeps every job
+  // completable by driving, with no new UI to learn.
+  const moved = Math.hypot(state.player.x - job.startX, state.player.z - job.startZ);
+  const courierDone = job.id === 'courier' && dist2(state.player.x, state.player.z, 90, -170) < 900;
+  const driveDone = (job.id === 'taxi' || job.id === 'tour') && moved > 260;
+  const vigilanteDone = job.id === 'vigilante' && Math.abs(state.player.speed || 0) > 40 && state.police.length === 0;
+  if (courierDone || driveDone || vigilanteDone) {
+    state.player.cash += job.pay;
+    state.respect += 40;
+    state.stats.sideJobsDone++;
+    state.sideJob = null;
+    toast(state, `${job.name} complete — +$${job.pay}, +40 respect.`, 4);
+  }
+}
+
+// A near miss: Mara flashes past a traffic car at speed, close enough
+// to feel it and far enough to live. +10 respect, once per pass.
+function checkNearMiss(state) {
+  const p = state.player;
+  if (!p.inCar || Math.abs(p.speed || 0) < 22) return;
+  for (const car of state.cars) {
+    if (car.isPlayer || car.isPolice) continue;
+    const d = Math.hypot(car.x - p.x, car.z - p.z);
+    if (d > 2.6 && d < 4.2 && !car._nearMissed) {
+      car._nearMissed = true;
+      state.respect += 10;
+      state.stats.nearMisses++;
+      toast(state, 'Near miss! +10 respect.', 2);
+    }
+    if (d > 12) car._nearMissed = false;
+  }
+}
+
+// Wanted heat: the chase burns hotter while Mara speeds with police
+// close, and cools while she hides slow and far from every unit. When
+// heat hits zero, the stars start falling one by one.
+function updateHeat(state, dt) {
+  const p = state.player;
+  if (p.wanted === 0) { state.heat = 0; return; }
+  let nearest = 1e9;
+  for (const c of state.police) nearest = Math.min(nearest, Math.hypot(c.x - p.x, c.z - p.z));
+  const hiding = Math.abs(p.speed || 0) < HEAT.hideSpeed && nearest > HEAT.hideRange;
+  if (hiding) {
+    state.heat = Math.max(0, state.heat - HEAT.coolSpeed * dt);
+  } else {
+    state.heat = Math.min(100, state.heat + HEAT.riseSpeed * dt * clamp(Math.abs(p.speed || 0) / 30, 0.3, 1));
+  }
+  if (state.heat <= 0 && p.wanted > 0 && state.time % 8 < dt) {
+    p.wanted = Math.max(0, p.wanted - 1);
+    state.heat = 25;
+    spawnPolice(state);
+    if (p.wanted === 0) toast(state, 'Clean getaway — VCPD lost you.', 3);
+  }
+}
+
+// Ferry riding: walk onto the pier while the ferry is docked and Mara
+// steps aboard; she rides it across the strait standing on the deck,
+// and steps off at the isle dock when it arrives.
+function updateFerryRide(state, dt) {
+  const p = state.player;
+  const f = state.ferry;
+  if (!state.onFerry) {
+    if (!p.inCar && f.docked && dist2(p.x, p.z, f.x, f.z) < 400) {
+      state.onFerry = true;
+      toast(state, 'Aboard the ferry — enjoy the sunset crossing.', 3);
+    }
+    return;
+  }
+  // Ride the deck: Mara's position follows the ferry exactly.
+  p.x = f.x; p.z = f.z; p.y = 8; p.heading = f.heading;
+  if (f.docked && f.leg >= 3) {
+    state.onFerry = false;
+    p.x = f.x + 20; p.z = f.z + 10; p.y = 0;
+    toast(state, 'Welcome to Ember Isle — Black Sand Beach.', 4);
+  }
+  // Boarding a car on deck parks it with her (the shot staging does the
+  // same thing by hand, so the ferry shot and free play agree).
+  if (p.car) { p.car.x = f.x; p.car.z = f.z; p.car.y = 8; }
+}
+
+// Round 10 — the PIT maneuver: a police cruiser that pulls alongside
+// Mara at speed swings into her rear quarter, spinning her heading and
+// scrubbing her speed, while a cruiser tucked right behind her rams.
+// This is what makes a 5-star chase feel like a chase instead of a
+// parade — the tail is not just following, it is trying to end the run.
+function updatePursuit(state, dt) {
+  const p = state.player;
+  if (!p.inCar || p.wanted < 2) return;
+  for (const car of state.police) {
+    const dx = p.x - car.x, dz = p.z - car.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 7 || d < 0.5) continue;
+    const pSpeed = Math.abs(p.speed || 0);
+    if (pSpeed < 12) continue;
+    // Alongside (lateral offset bigger than the gap ahead): PIT.
+    const fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+    const along = dx * fx + dz * fz;
+    const across = Math.abs(dx * fz - dz * fx);
+    if (across > 2 && Math.abs(along) < 4) {
+      const side = (dx * fz - dz * fx) > 0 ? 1 : -1;
+      p.heading += side * 0.9 * dt;
+      if (p.car) p.car.heading = p.heading;
+      p.speed *= (1 - 0.8 * dt);
+      if (p.car) p.car.speed = p.speed;
+      if (state.rng.next() < dt * 0.4) {
+        toast(state, 'PIT maneuver! VCPD spun your rear quarter.', 2);
+      }
+    } else if (along < -1 && along > -6) {
+      // Right behind: a ram that shoves Mara's speed down and costs health.
+      p.speed *= (1 - 0.6 * dt);
+      if (p.car) p.car.speed = p.speed;
+      if (state.rng.next() < dt * 0.25) {
+        p.health = Math.max(0, p.health - 2);
+      }
+    }
+  }
+}
+
+// Round 10 — frightened pedestrians: at wanted 3+, anyone close to Mara
+// breaks into a run away from her, arms pumping (the walk phase spins
+// faster), and calms back to a stroll once the chase has passed.
+function updatePedFlee(state, dt) {
+  const p = state.player;
+  for (const ped of state.peds) {
+    const d = Math.hypot(ped.x - p.x, ped.z - p.z);
+    if (p.wanted >= 3 && d < 14) {
+      const away = Math.atan2(ped.x - p.x, ped.z - p.z);
+      ped.dir = angleLerp(ped.dir, away, dt * 3);
+      ped.speed = Math.max(ped.speed || 0, 4.2);
+      ped.walkPhase = (ped.walkPhase || 0) + dt * 7;
+      ped.fleeing = true;
+    } else if (ped.fleeing) {
+      ped.speed = 1.2;
+      ped.fleeing = false;
+    }
+  }
+}
+
+// Round 10 — idle hints: if Mara stands still with no input for 20
+// seconds, the game rotates a helpful nudge (side jobs, map, business,
+// garage, coins, ferry) instead of leaving her staring at the street.
+function updateIdleHints(state, input, dt) {
+  const moving = input.up || input.down || input.left || input.right || input.handbrake || Math.abs(state.player.speed || 0) > 2;
+  if (moving) { state.idleTime = 0; return; }
+  state.idleTime += dt;
+  if (state.idleTime > 20) {
+    state.idleTime = 0;
+    toast(state, HINTS[state.hintIndex % HINTS.length], 4);
+    state.hintIndex++;
+  }
+}
+
+// Round 10 — businesses grow with Mara's story: every five missions
+// completed, each owned business earns one more level of income, so the
+// early diner keeps paying better as she becomes Queen of Ember.
+function updateBusinessLevels(state) {
+  const level = 1 + Math.floor(state.stats.missionsDone / 5);
+  for (const b of state.businesses) {
+    if (b.level < level) {
+      b.level = level;
+      toast(state, `${b.name} grew to level ${level} — income up.`, 3);
+    }
+  }
 }

@@ -1,1 +1,28 @@
-{"shots":[{"file":"1-start.jpg","height":720,"url":"?shot=start&seed=1","width":1280},{"file":"2-city.jpg","height":720,"url":"?shot=city&seed=1","width":1280},{"file":"3-volcano.jpg","height":720,"url":"?shot=volcano&seed=1","width":1280},{"file":"4-ferry.jpg","height":720,"url":"?shot=ferry&seed=1","width":1280}]}
+{
+  "shots": [
+    {
+      "file": "1-start.jpg",
+      "height": 720,
+      "url": "?shot=start&seed=1",
+      "width": 1280
+    },
+    {
+      "file": "2-city.jpg",
+      "height": 720,
+      "url": "?shot=city&seed=1",
+      "width": 1280
+    },
+    {
+      "file": "3-volcano.jpg",
+      "height": 720,
+      "url": "?shot=volcano&seed=1",
+      "width": 1280
+    },
+    {
+      "file": "4-ferry.jpg",
+      "height": 720,
+      "url": "?shot=ferry&seed=1",
+      "width": 1280
+    }
+  ]
+}

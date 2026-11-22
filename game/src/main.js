@@ -1,5 +1,5 @@
 // Vesper City: Ember Isle — bootstrap, main loop, key bindings, shot mode.
-import { createGame, update, enterExitCar, cycleRadio, fireWeapon, saveGame, loadGame, buyBusiness, buyUpgrade, startRace, toast } from './game.js';
+import { createGame, update, enterExitCar, cycleRadio, fireWeapon, saveGame, loadGame, buyBusiness, buyUpgrade, startRace, toast, doSideJob } from './game.js';
 import { Renderer, renderFrame } from './render.js';
 import { createInput } from './input.js';
 import { buildHud, updateHud } from './hud.js';
@@ -31,6 +31,8 @@ if (shotName) {
   state.freePlay = false;
   // Rev2: shotTime 12.5 locks every staged shot at golden hour (the game
   // starts at dayTime 17.4) so the cover chase reads warm, like Rank 1's.
+  // Round 10: the same frozen moment also freezes the surf, the mist,
+  // the rotor blur and the exhaust puffs — every frame is identical.
   shotTime = 12.5; // fixed golden-hour moment, deterministic
   window.__shotReady = true;
 }
@@ -69,6 +71,14 @@ window.addEventListener('keydown', (e) => {
     else toast(state, 'Garage fully upgraded — RACE SPEC installed.', 2);
   }
   if (e.code === 'KeyQ') state.showWheel = true;
+  // Round 10 — H sounds the ferry horn (and the car horn on land).
+  if (e.code === 'KeyH') radio.horn();
+  // Round 10 — T starts the next side job in rotation (taxi, courier,
+  // vigilante, tour), so quick cash work is one key away.
+  if (e.code === 'KeyT') {
+    const jobs = ['taxi', 'courier', 'vigilante', 'tour'];
+    doSideJob(state, jobs[state.stats.sideJobsDone % jobs.length]);
+  }
 });
 window.addEventListener('keyup', (e) => {
   if (e.code === 'KeyQ') state.showWheel = false;
@@ -83,10 +93,24 @@ window.addEventListener('click', (e) => {
 
 let last = performance.now();
 let frame = 0;
+let hornHeard = false;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
   last = now;
   frame++;
+  // Round 10 — when the ferry casts off, its horn sounds once.
+  if (state.ferry.hornBlast && !hornHeard) {
+    hornHeard = true;
+    state.ferry.hornBlast = false;
+    radio.horn();
+  }
+  if (state.ferry.docked) hornHeard = false;
+  // Round 10 — gulls cry over the beach and the pier in free play, once
+  // in a while, never in a frozen shot.
+  if (!shotName && state.started && frame % 1200 === 0) {
+    const nearSea = state.player.x > 180 || state.player.x < -200;
+    if (nearSea && Math.random() < 0.6) radio.gull();
+  }
   if (shotName) {
     // Deterministic frozen frame for the screenshot.
     renderFrame(renderer, state.world, state, shotTime);
@@ -122,6 +146,15 @@ requestAnimationFrame(loop);
 window.__vesper = {
   state,
   start: startGame,
+  // Round 10 — live readout of the new systems for the verifier and the
+  // debug console: traffic size, particles alive, time of day.
+  systems() {
+    return {
+      cars: state.cars.length, traffic: state.cars.filter((c) => !c.isPlayer && !c.isPolice).length,
+      police: state.police.length, particles: state.particles.length,
+      dayTime: state.dayTime, weather: state.weather, ferryDocked: state.ferry.docked,
+    };
+  },
   drive(seconds) {
     startGame();
     const inputSim = { up: true, down: false, left: false, right: false, handbrake: false, sprint: false };

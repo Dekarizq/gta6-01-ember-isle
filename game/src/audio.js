@@ -102,4 +102,35 @@ export class RadioEngine {
 
   coin() { this.blip(1320, 0.12, 'sine', 0.25); window.setTimeout(() => this.blip(1760, 0.18, 'sine', 0.25), 90); }
   uiBlip() { this.blip(880, 0.07, 'sine', 0.2); }
+
+  // Round 10 — ferry horn: two long low blasts (220 Hz then 174 Hz) when
+  // the ferry casts off from Sunset Pier, plus a distant car horn.
+  horn() {
+    if (!this.ctx) return;
+    this.blip(220, 0.7, 'sawtooth', 0.16);
+    window.setTimeout(() => this.blip(174, 0.8, 'sawtooth', 0.16), 750);
+  }
+
+  // Round 10 — seagull cry over the harbour: three quick descending
+  // chirps, for the beach and pier scenes.
+  gull() {
+    if (!this.ctx) return;
+    [1180, 980, 820].forEach((f, i) => {
+      window.setTimeout(() => this.blip(f, 0.09, 'sine', 0.1), i * 110);
+    });
+  }
+
+  // Round 10 — near-miss whoosh: a quick rising noise sweep when Mara
+  // threads past a traffic car, and a soft dusk chime when the city
+  // lights switch on.
+  nearMiss() {
+    if (!this.ctx) return;
+    this.blip(300, 0.12, 'sawtooth', 0.08);
+    window.setTimeout(() => this.blip(520, 0.14, 'sawtooth', 0.08), 90);
+  }
+  duskChime() {
+    if (!this.ctx) return;
+    this.blip(660, 0.3, 'sine', 0.12);
+    window.setTimeout(() => this.blip(880, 0.4, 'sine', 0.12), 220);
+  }
 }

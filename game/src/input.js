@@ -1,6 +1,8 @@
 // Keyboard + mouse input for Vesper City.
 // Rev2 note: shot mode is frozen, so input never moves a staged scene —
 // the chase shots are framed by applyShot(), not by driving.
+// Round 10: touch input added for phone play — one finger steers like
+// the mouse, touch-and-hold is the accelerator.
 export function createInput() {
   const keys = {};
   const input = {
@@ -31,6 +33,20 @@ export function createInput() {
   });
   window.addEventListener('mousedown', (e) => { input.mouseDown = true; });
   window.addEventListener('mouseup', () => { input.mouseDown = false; });
+  // Round 10 — touch controls for phone play (the user plays on a phone):
+  // one finger steers like the mouse, touch-and-hold is the accelerator.
+  window.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    input.mouseX = t.clientX; input.mouseY = t.clientY;
+    input.mouseDown = true; input.up = true;
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (!t) return;
+    input.mouseX = t.clientX; input.mouseY = t.clientY;
+  }, { passive: true });
+  window.addEventListener('touchend', () => { input.mouseDown = false; input.up = false; });
   window.addEventListener('blur', () => {
     for (const k of Object.keys(map)) input[map[k]] = false;
   });

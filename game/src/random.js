@@ -43,6 +43,28 @@ export function makeNoise(seed) {
 export function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 export function lerp(a, b, t) { return a + (b - a) * t; }
 export function dist2(ax, az, bx, bz) { const dx = ax - bx, dz = az - bz; return dx * dx + dz * dz; }
+
+// Round 10 — deterministic 2D hash: a stable pseudo-random value in
+// [0, 1) for a pair of integer coordinates, so surf foam, mist and dust
+// look organic without any per-frame randomness (shots stay identical).
+export function hash2(ix, iz) {
+  let h = (ix * 374761393 + iz * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+// Round 10 — smoothstep 0..1 for fades (mist density, dusk blend,
+// headlight ramp) without branching.
+export function smoothstep(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+// Round 10 — gaussian-ish jitter in [-1, 1] from a seeded rng, for
+// exhaust puff sizes and pedestrian stride variation.
+export function gauss(rng) {
+  return (rng.next() + rng.next() + rng.next() - 1.5) * 2 / 3;
+}
 export function angleLerp(a, b, t) {
   let d = (b - a) % (Math.PI * 2);
   if (d > Math.PI) d -= Math.PI * 2;

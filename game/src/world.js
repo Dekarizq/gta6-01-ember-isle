@@ -1,8 +1,10 @@
 // World generation: city grid, island, volcano, palms, traffic and pedestrians.
 // Deterministic from a seed so screenshots and replays match.
-// Rev2 note: shot staging (shots.js) repositions peds/coins from this
-// world instead of rebuilding it — the city, isle and volcano are unchanged.
-import { CITY, ISLE, VOLCANO, DISTRICTS, FERRY } from './config.js';
+// Round 10 note: the city, isle and volcano are unchanged, but the shore
+// is dressed — beach umbrellas, surfboards, ferry-route buoys and pier
+// props are seeded here and drawn by the renderer, so the new beach and
+// pier shots have foreground life instead of empty sand and sea.
+import { CITY, ISLE, VOLCANO, DISTRICTS, FERRY, BEACH, HARBOR, DOCKS } from './config.js';
 import { makeRng, makeNoise, clamp } from './random.js';
 
 export function buildWorld(seed) {
@@ -14,6 +16,13 @@ export function buildWorld(seed) {
   const coins = [];
   const peds = [];
   const trafficSpawns = [];
+  // Round 10 — beach dressing and sea markers, all seeded so every run
+  // stages the same shore: umbrellas + surfboards on Sunset Beach,
+  // orange buoys along the ferry route, crates and benches on the pier.
+  const umbrellas = [];
+  const surfboards = [];
+  const buoys = [];
+  const pierProps = [];
 
   // 9x9 city blocks. Each block holds 1-4 towers; height grows toward centre.
   const half = CITY.blocks / 2;
@@ -120,9 +129,103 @@ export function buildWorld(seed) {
     { x: FERRY.isleDock.x, z: FERRY.isleDock.z },
   ];
 
+  // Round 10 — Sunset Beach dressing: striped umbrellas in a loose row
+  // above the surf line, surfboards stuck upright in the sand between
+  // them, colours picked from the same sunset palette as the city.
+  // They sit east of the beach road (x >= 224) so the Round 10 pier
+  // chase shot keeps a clear driving line.
+  const umbrellaCols = ['#ff5c3c', '#ffd23c', '#2fa8ff', '#ff8ad8', '#7aff8a'];
+  for (let i = 0; i < BEACH.umbrellas; i++) {
+    umbrellas.push({
+      x: rng.range(226, 244), z: rng.range(-190, 190),
+      color: umbrellaCols[i % umbrellaCols.length],
+      tilt: rng.range(-0.12, 0.12),
+    });
+  }
+  for (let i = 0; i < BEACH.surfboards; i++) {
+    surfboards.push({
+      x: rng.range(224, 240), z: rng.range(-180, 180),
+      color: umbrellaCols[(i + 2) % umbrellaCols.length],
+      lean: rng.range(-0.2, 0.2),
+    });
+  }
+  // Round 10 — orange marker buoys bobbing along the ferry route, so the
+  // strait reads as a sailed channel instead of empty blue.
+  for (let i = 0; i < BEACH.buoys; i++) {
+    const t = (i + 0.5) / BEACH.buoys;
+    const a = ferryRoute[1], b = ferryRoute[2];
+    buoys.push({
+      x: a.x + (b.x - a.x) * t + rng.range(-14, 14),
+      z: a.z + (b.z - a.z) * t + rng.range(-14, 14),
+      phase: rng.range(0, 6.28),
+    });
+  }
+  // Round 10 — Sunset Pier props: fish crates stacked near the pier root
+  // and wooden benches facing the sunset, for the pier chase shot.
+  for (let i = 0; i < BEACH.pierCrates; i++) {
+    pierProps.push({
+      x: FERRY.pier.x - 6 - i * 3.2, z: FERRY.pier.z + (i % 2 ? 3.4 : -3.4),
+      kind: i < 3 ? 'crate' : 'bench',
+    });
+  }
+
+  // Round 10 — the lived-in isle and the working harbour, all seeded:
+  // fishing-village huts with thatched roofs on the isle's south shore,
+  // white resort blocks on the north shore, three container cranes over
+  // Harbor Docks, and big bright billboards on four city towers.
+  const villageHuts = [];
+  for (let i = 0; i < HARBOR.villageHuts; i++) {
+    villageHuts.push({
+      x: HARBOR.villageX + rng.range(-70, 70), z: HARBOR.villageZ + rng.range(-25, 25),
+      w: rng.range(5, 8), h: rng.range(3, 5),
+      roof: rng.pick(['#c98a2e', '#8a5a26', '#a86f1e']),
+      wall: rng.pick(['#e8dcc0', '#d8c8a8', '#c8b898']),
+    });
+  }
+  const resortBlocks = [];
+  for (let i = 0; i < HARBOR.resortBlocks; i++) {
+    resortBlocks.push({
+      x: HARBOR.resortX - 60 + i * 42, z: HARBOR.resortZ + (i % 2 ? 14 : -12),
+      w: 26, h: 12 + i * 4, d: 18,
+      color: i % 2 ? '#f2ede0' : '#d8e8f2',
+    });
+  }
+  const cranes = [];
+  for (let i = 0; i < HARBOR.cranes; i++) {
+    cranes.push({
+      x: HARBOR.craneX + i * 36, z: HARBOR.craneZ + (i % 2 ? 18 : -16),
+      h: 46 + i * 6, reach: 34,
+    });
+  }
+  // Billboards sit on four of the tallest towers, facing the roads.
+  const billboards = [];
+  const tall = [...buildings].sort((a, b) => b.h - a.h).slice(0, HARBOR.billboards);
+  const boardCols = ['#ff5c8a', '#2fd8ff', '#ffd23c', '#7aff8a'];
+  tall.forEach((b, i) => {
+    billboards.push({ x: b.x, y: b.h + 4, z: b.z + b.d / 2 + 0.6, color: boardCols[i % boardCols.length] });
+  });
+
+  // Round 10 — dock containers stacked in rows at Harbor Docks, and bus
+  // stops with benches and signs on four of the city's main roads.
+  const containers = [];
+  const contCols = ['#b8202e', '#2e5a78', '#c98a2e', '#4a7a3a'];
+  for (let i = 0; i < DOCKS.containers; i++) {
+    const row = Math.floor(i / 4), col = i % 4;
+    containers.push({
+      x: DOCKS.containerX + col * 8, z: DOCKS.containerZ + row * 7,
+      level: row === 2 && col % 2 === 0 ? 1 : 0,
+      color: contCols[i % contCols.length],
+    });
+  }
+  const busStops = [];
+  for (const [bx, bz] of [[23, 69], [-69, 23], [115, -23], [-23, -115]]) {
+    busStops.push({ x: bx, z: bz });
+  }
+
   return {
     seed, buildings, palms, lamps, coins, peds, trafficSpawns,
-    lavaFlows, ferryRoute,
+    lavaFlows, ferryRoute, umbrellas, surfboards, buoys, pierProps,
+    villageHuts, resortBlocks, cranes, billboards, containers, busStops,
     districts: DISTRICTS,
     volcano: VOLCANO, isle: ISLE,
   };
