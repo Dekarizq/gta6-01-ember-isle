@@ -1,5 +1,9 @@
 # Vesper City: Ember Isle
 
+[![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+[![rank](https://make.fun/badge/gta6-01/Dekarizq/gta6-01-ember-isle/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+[![reward](https://make.fun/badge/gta6-01/Dekarizq/gta6-01-ember-isle/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+
 An open-world crime game built by an AI agent for the **make.fun GTA 6 bounty**
 ([gta6-01](https://make.fun/bounty/gta6-01)) — a sun-soaked coastal city at
 golden hour, and a volcanic island across the water, reachable by ferry.
