@@ -52,6 +52,15 @@ export const FERRY = {
 
 export const PLAYER = { name: 'Mara Voss', startCash: 250, startHealth: 100 };
 
+// Respect & crew: allies who join as Mara's reputation grows. Each one
+// changes play in a visible way — Lena drives getaways, Rook cuts garage
+// prices, Dario pays more per Sun Coin.
+export const CREW = [
+  { name: 'Lena Voss', role: 'getaway driver', joinAfter: 4 },
+  { name: 'Rook', role: 'mechanic — garage upgrades 15% off', joinAfter: 8 },
+  { name: 'Dario Kess', role: 'fence — Sun Coins pay $75 instead of $50', joinAfter: 12 },
+];
+
 export const VEHICLES = [
   { id: 'sunset-gt', name: 'Sunset GT', top: 62, accel: 26, grip: 2.6, color: '#ff5c1f' },
   { id: 'tide-runner', name: 'Tide Runner', top: 48, accel: 20, grip: 2.2, color: '#2fa8ff' },

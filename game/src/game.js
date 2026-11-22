@@ -3,7 +3,7 @@
 import {
   CITY, ISLE, VOLCANO, FERRY, VEHICLES, WEAPONS, RADIO, MISSIONS,
   POLICE_CITY, POLICE_ISLE, RACES, RIVALS, BUSINESSES, GARAGE_UPGRADES,
-  SUN_COINS_TOTAL, PLAYER,
+  SUN_COINS_TOTAL, PLAYER, CREW,
 } from './config.js';
 import { buildWorld, groundHeightAt } from './world.js';
 import { makeRng, clamp, angleLerp, dist2 } from './random.js';
@@ -38,8 +38,9 @@ export function createGame(seed) {
     coins: world.coins.map(c => ({ ...c, taken: false })),
     coinsCollected: 0,
     ferry: { x: FERRY.pier.x, z: FERRY.pier.z, heading: Math.PI / 2, leg: 0, t: 0, docked: true, timer: 0 },
-    heli: null, police: [], roadblocks: [],
+    heli: null, police: [], roadblocks: [], spikeStrips: [],
     missionIndex: 0, missionProgress: 0,
+    respect: 0, crew: [],
     radioIndex: 0, radioOn: true,
     weather: 'golden', storm: 0, lightning: 0,
     businesses: [], garage: {},
@@ -77,8 +78,16 @@ export function completeMission(state) {
   if (!m) return;
   state.player.cash += m.reward;
   state.stats.missionsDone++;
+  state.respect += 100 + Math.round(m.reward / 10);
   state.missionIndex = Math.min(state.missionIndex + 1, MISSIONS.length);
   toast(state, `Mission complete: ${m.title} — +$${m.reward}`, 4);
+  // Crew joins as the mission count passes each threshold.
+  for (const c of CREW) {
+    if (state.missionIndex === c.joinAfter && !state.crew.includes(c.name)) {
+      state.crew.push(c.name);
+      toast(state, `${c.name} joined your crew — ${c.role}!`, 5);
+    }
+  }
   if (state.missionIndex >= MISSIONS.length) {
     state.player.rank = 'Queen of Ember';
     toast(state, 'You are the Queen of Ember. Vesper City is yours.', 6);
@@ -126,6 +135,13 @@ export function spawnPolice(state) {
     state.roadblocks.push({ x: p.x + Math.sin(a) * 90, z: p.z + Math.cos(a) * 90 });
   }
   if (p.wanted < 2) state.roadblocks = [];
+  // Spike strip at wanted 4+: one strip laid across the escape route ahead.
+  if (!isIsle && p.wanted >= 4) {
+    const a = p.heading;
+    state.spikeStrips = [{ x: p.x + Math.sin(a) * 70, z: p.z + Math.cos(a) * 70, heading: a }];
+  } else if (p.wanted < 4) {
+    state.spikeStrips = [];
+  }
 }
 
 function driveCar(car, input, dt, state) {
@@ -234,8 +250,10 @@ function updateCoins(state) {
     if (coin.taken) continue;
     if (dist2(p.x, p.z, coin.x, coin.z) < 9 && Math.abs(p.y - coin.y) < 8) {
       coin.taken = true; state.coinsCollected++;
-      state.player.cash += 50;
-      toast(state, `Sun Coin ${state.coinsCollected}/${SUN_COINS_TOTAL} — +$50`, 2);
+      const value = state.crew.includes('Dario Kess') ? 75 : 50;
+      state.player.cash += value;
+      state.respect += 25;
+      toast(state, `Sun Coin ${state.coinsCollected}/${SUN_COINS_TOTAL} — +$${value}`, 2);
     }
   }
 }
@@ -268,11 +286,13 @@ export function buyUpgrade(state, id) {
   if (!u) return false;
   const lvl = state.garage[id] || 0;
   if (lvl >= u.levels) return false;
-  const cost = u.cost[lvl];
+  const baseCost = u.cost[lvl];
+  // Rook the mechanic cuts every garage price by 15% once he joins.
+  const cost = state.crew.includes('Rook') ? Math.round(baseCost * 0.85) : baseCost;
   if (state.player.cash < cost) { toast(state, `Need $${cost} for ${u.name} Lv${lvl + 1}.`, 2); return false; }
   state.player.cash -= cost;
   state.garage[id] = lvl + 1;
-  toast(state, `${u.name} upgraded to level ${lvl + 1}.`, 3);
+  toast(state, `${u.name} upgraded to level ${lvl + 1}${state.crew.includes('Rook') ? ' (Rook discount −15%)' : ''}.`, 3);
   return true;
 }
 
@@ -395,6 +415,7 @@ export function enterExitCar(state) {
     if (best && bd < 36) {
       p.inCar = true; p.car = best; best.isPlayer = true;
       state.stats.carsStolen++;
+      state.respect += 50;
       raiseWanted(state, 1);
       toast(state, `You stole the ${best.name}! Wanted level ${p.wanted}.`, 3);
     } else {

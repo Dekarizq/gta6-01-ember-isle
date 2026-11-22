@@ -17,6 +17,7 @@ export function buildHud(document) {
       <div id="mission-title">MISSION</div>
       <div id="mission-brief"></div>
       <div id="mission-count"></div>
+      <div id="respect-line"></div>
     </div>
     <div id="top-right">
       <div id="clock">17:24</div>
@@ -35,6 +36,7 @@ export function buildHud(document) {
       <p class="tagline">Take back the city. Rule the island.</p>
       <p class="start">Press ENTER or click to start</p>
       <p class="credits">Mara Voss · 20 story missions · 6 street races · 10 businesses · 42 Sun Coins</p>
+      <p class="credits">Respect &amp; crew: Lena Voss · Rook · Dario Kess</p>
     </div>
     <div id="pause-screen" style="display:none">
       <h1>PAUSED</h1>
@@ -75,6 +77,9 @@ export function updateHud(state, document) {
     $('mission-brief').textContent = 'You are the Queen of Ember.';
     $('mission-count').textContent = '';
   }
+  // Respect & crew line — always visible in the mission panel.
+  const crewNames = (state.crew || []).map(n => n.split(' ')[0]).join(' · ');
+  $('respect-line').textContent = `RESPECT ${state.respect || 0} · CREW: ${crewNames || '—'}`;
   $('clock').textContent = fmtClock(state.dayTime);
   $('weather').textContent = state.weather === 'hurricane' ? '⚡ HURRICANE' : state.dayTime < 6 || state.dayTime > 19 ? 'NIGHT' : 'GOLDEN HOUR';
   const st = RADIO[state.radioIndex];
@@ -85,6 +90,9 @@ export function updateHud(state, document) {
   toastEl.textContent = state.time < state.toastUntil ? state.toast : '';
   toastEl.style.opacity = state.time < state.toastUntil ? '1' : '0';
   $('title-screen').style.display = state.started ? 'none' : 'flex';
+  // Shot mode is a frozen screenshot, not play: hide the controls hint so
+  // its tiny text does not clutter the frame (free play keeps it).
+  $('controls-hint').style.display = state.shot ? 'none' : 'block';
   $('pause-screen').style.display = state.paused ? 'flex' : 'none';
   $('map-screen').style.display = state.showMap ? 'flex' : 'none';
   // Weapon wheel (hold Q).

@@ -1,6 +1,6 @@
 // Raw WebGL renderer for Vesper City: Ember Isle.
 // One shader, vertex colours, golden-hour fog, sun disc, sea bands, volcano.
-import { FOG, SKY, SEA, CITY, ISLE, VOLCANO, FERRY } from './config.js';
+import { FOG, SKY, SEA, CITY, ISLE, VOLCANO, FERRY, MISSIONS, DISTRICTS } from './config.js';
 import { clamp, lerp } from './random.js';
 
 const VERT = `
@@ -291,6 +291,12 @@ export function renderFrame(renderer, world, state, time) {
     const c = i * CITY.pitch + CITY.pitch / 2;
     renderer.quad([c - 7, 0.45, -230], [c + 7, 0.45, -230], [c + 7, 0.45, 230], [c - 7, 0.45, 230], [0.08, 0.08, 0.10], false);
     renderer.quad([-230, 0.45, c - 7], [230, 0.45, c - 7], [230, 0.45, c + 7], [-230, 0.45, c + 7], [0.08, 0.08, 0.10], false);
+    // Centre-line dashes so the dark asphalt reads as a road, not a void.
+    // Subtle warm grey, kept below the car shadows (y 0.48 vs 0.5).
+    for (let d = -220; d <= 220; d += 12) {
+      renderer.quad([c - 0.3, 0.48, d - 1.5], [c + 0.3, 0.48, d - 1.5], [c + 0.3, 0.48, d + 1.5], [c - 0.3, 0.48, d + 1.5], [0.7, 0.65, 0.4], false);
+      renderer.quad([d - 1.5, 0.48, c - 0.3], [d + 1.5, 0.48, c - 0.3], [d + 1.5, 0.48, c + 0.3], [d - 1.5, 0.48, c + 0.3], [0.7, 0.65, 0.4], false);
+    }
   }
 
   // --- Buildings with lit gold window strips (noFog) ---
@@ -305,6 +311,8 @@ export function renderFrame(renderer, world, state, time) {
       renderer.box(b.x, wy, b.z - b.d / 2 - 0.15, b.w * 0.8, 0.7, 0.3, strip, { nofog: true });
     }
     if (b.roof) renderer.box(b.x, b.h + 1, b.z, b.w * 0.4, 2, b.d * 0.4, '#8a6a3a');
+    // Tall towers carry a thin rooftop antenna so the skyline reads taller.
+    if (b.h >= 40) renderer.box(b.x, b.h + 3, b.z, 0.6, 6, 0.6, '#222222');
   }
 
   // --- Palms (swaying fronds) ---
@@ -319,15 +327,19 @@ export function renderFrame(renderer, world, state, time) {
     renderer.box(fx, top + 0.6, fz, 1.6, 1.2, 1.6, '#6a4a22');
   }
 
-  // --- Street lamps ---
+  // --- Street lamps (small glow, not a big cube: a lamp seen from 6 m
+  // away must still read as a lamp, so the glow box stays under a metre) ---
   for (const l of world.lamps) {
     renderer.cylinder(l.x, 0, l.z, 0.25, 7, '#2a2a30', 5);
-    renderer.box(l.x, 7.2, l.z, 1.4, 0.7, 1.4, [1.0, 0.85, 0.45], { nofog: true });
+    renderer.box(l.x, 7.2, l.z, 0.9, 0.5, 0.9, [1.0, 0.85, 0.45], { nofog: true });
   }
 
   // --- Volcano: cone, lava flows, crater ring, beacon, smoke, sparks ---
   const v = VOLCANO;
-  renderer.cone(v.x, v.z, v.base, v.height, '#5a4038', 9);
+  // Warmer, lighter cone base: the shadow side of the cone was reading as
+  // a near-black mass in the volcano shot; a warmer base keeps the
+  // backlit slope readable instead of flat black.
+  renderer.cone(v.x, v.z, v.base, v.height, '#6e4a3e', 9);
   // Bright orange crater rim ring, visible from the side (stacked glowing boxes).
   for (let i = 0; i < 18; i++) {
     const a = (i / 18) * Math.PI * 2;
@@ -366,8 +378,8 @@ export function renderFrame(renderer, world, state, time) {
       renderer.box(v.x + Math.cos(a) * r, v.height + 4 + Math.sin(time * 2 + i) * 8, v.z + Math.sin(a) * r, 1.6, 1.6, 1.6, [1.0, 0.75, 0.2], { nofog: true });
     }
   }
-  // Second crater, enlarged, south-east of the main cone.
-  renderer.cone(v.x + 92, v.z + 78, 46, 34, '#33241f', 6);
+  // Second crater, enlarged, south-east of the main cone (warmed to match).
+  renderer.cone(v.x + 92, v.z + 78, 46, 34, '#40291f', 6);
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;
     renderer.box(v.x + 92 + Math.cos(a) * 9, 33, v.z + 78 + Math.sin(a) * 9, 4, 2.4, 4, [1.0, 0.45, 0.08], { nofog: true });
@@ -403,11 +415,26 @@ export function renderFrame(renderer, world, state, time) {
   }
   renderer.box(pier.x - 42, 2.4, pier.z, 3, 4.8, 3, [1.0, 0.85, 0.4], { nofog: true });
 
+  // --- Mission beacon: a tall gold beam over the active mission's
+  // district, so the goal is visible from anywhere in the city/isle.
+  // Targets that are places, not districts, fall back to their map spot.
+  const BEACON_SPOTS = {
+    'Sunset Pier': FERRY.pier,
+    'Ember Crater': { x: VOLCANO.x, z: VOLCANO.z },
+    'Second Crater': { x: VOLCANO.x + 92, z: VOLCANO.z + 78 },
+  };
+  const curMission = MISSIONS[state.missionIndex];
+  if (curMission) {
+    const d = DISTRICTS.find(dd => dd.name === curMission.target) || BEACON_SPOTS[curMission.target];
+    if (d) renderer.box(d.x, 30, d.z, 3, 60, 3, [1.0, 0.82, 0.25], { nofog: true });
+  }
+
   // --- Vehicles, pedestrians, coins, police ---
   for (const car of state.cars) drawCar(renderer, car);
   for (const ped of state.peds) {
-    renderer.box(ped.x, 1.1, ped.z, 0.8, 2.2, 0.8, ped.shirt);
-    renderer.box(ped.x, 2.5, ped.z, 0.7, 0.7, 0.7, ped.skin);
+    const py = ped.y || 0; // peds staged on the ferry deck ride at y = 8
+    renderer.box(ped.x, py + 1.1, ped.z, 0.8, 2.2, 0.8, ped.shirt);
+    renderer.box(ped.x, py + 2.5, ped.z, 0.7, 0.7, 0.7, ped.skin);
   }
   for (const coin of state.coins) {
     if (coin.taken) continue;
@@ -420,10 +447,34 @@ export function renderFrame(renderer, world, state, time) {
     renderer.box(h.x, h.y + 2.4, h.z, 5, 1.6, 3, '#2e4a6e');
     renderer.box(h.x - 6, h.y + 1, h.z, 1.6, 1, 1.6, [1.0, 0.9, 0.5], { nofog: true });
     renderer.box(h.x, h.y + 3.6, h.z, 16, 0.3, 1, '#222');
+    // Air One searchlight: a narrow pale shaft from the heli down to the
+    // player plus a small gold spotlight pool on the ground under the
+    // player. Kept narrow (1 m at the heli, 2 m at the player) so the beam
+    // reads as light, not as a solid sail filling the frame.
+    const p = state.player;
+    const dx = p.x - h.x, dz = p.z - h.z;
+    const len = Math.hypot(dx, dz) || 1;
+    const px = -dz / len * 0.5, pz = dx / len * 0.5;
+    const beamCol = [0.92, 0.88, 0.62];
+    renderer.quad(
+      [h.x - px, h.y - 1, h.z - pz], [h.x + px, h.y - 1, h.z + pz],
+      [p.x + px * 2, (p.y || 0) + 0.7, p.z + pz * 2], [p.x - px * 2, (p.y || 0) + 0.7, p.z - pz * 2],
+      beamCol, true);
+    const gy = (p.y || 0) + 0.6, r = 4;
+    renderer.quad([p.x - r, gy, p.z - r], [p.x + r, gy, p.z - r], [p.x + r, gy, p.z + r], [p.x - r, gy, p.z + r], [1.0, 0.85, 0.3], true);
   }
   for (const rb of state.roadblocks || []) {
     renderer.box(rb.x, 1, rb.z, 10, 2, 1.4, '#ff5c3c');
     renderer.box(rb.x, 1, rb.z, 10, 0.6, 1.5, '#ffffff', { nofog: true });
+  }
+  // Spike strips: a dark strip across the road with 5 bright steel spikes.
+  for (const ss of state.spikeStrips || []) {
+    const s = Math.sin(ss.heading || 0), co = Math.cos(ss.heading || 0);
+    renderer.box(ss.x, 0.6, ss.z, 1.2, 0.5, 9, '#1a1a1a', { rotY: ss.heading || 0 });
+    for (let i = -2; i <= 2; i++) {
+      const sx = ss.x + co * i * 1.7, sz = ss.z - s * i * 1.7;
+      renderer.box(sx, 1.0, sz, 0.5, 0.9, 0.5, [0.85, 0.9, 0.95], { nofog: true });
+    }
   }
 
   renderer.flush(proj, view);
@@ -431,18 +482,35 @@ export function renderFrame(renderer, world, state, time) {
 
 function drawCar(renderer, car) {
   const c = car.color;
-  renderer.box(car.x, 1.0, car.z, 4.6, 1.1, 2.1, c, { rotY: car.heading });
-  renderer.box(car.x, 1.9, car.z, 2.4, 0.9, 1.9, shade2(c), { rotY: car.heading });
+  // Rev2: cars sit on their own ground height (car.y), so a car parked on
+  // the ferry deck (y = 8) or the lava road stands on the deck/road, not at
+  // sea level. Local +z is the front at the shot headings (heading PI).
+  const base = car.y || 0;
   const s = Math.sin(car.heading), co = Math.cos(car.heading);
+  const at = (dx, dz) => [car.x + dx * co - dz * s, car.z + dx * s + dz * co];
+  // Long dark ground shadow, slightly larger than the car, just under it.
+  const sh = 0.5;
+  const [shAx, shAz] = at(-2.6, -1.4), [shBx, shBz] = at(2.6, -1.4);
+  const [shCx, shCz] = at(2.6, 1.4), [shDx, shDz] = at(-2.6, 1.4);
+  renderer.quad([shAx, base + sh, shAz], [shBx, base + sh, shBz], [shCx, base + sh, shCz], [shDx, base + sh, shDz], [0.02, 0.02, 0.03], false);
+  renderer.box(car.x, base + 1.0, car.z, 4.6, 1.1, 2.1, c, { rotY: car.heading });
+  renderer.box(car.x, base + 1.9, car.z, 2.4, 0.9, 1.9, shade2(c), { rotY: car.heading });
   for (const [dx, dz] of [[-1.5, -1.05], [1.5, -1.05], [-1.5, 1.05], [1.5, 1.05]]) {
-    const wx = car.x + dx * co - dz * s, wz = car.z + dx * s + dz * co;
-    renderer.box(wx, 0.45, wz, 0.9, 0.9, 0.5, '#111111', { rotY: car.heading });
+    const [wx, wz] = at(dx, dz);
+    renderer.box(wx, base + 0.45, wz, 0.9, 0.9, 0.5, '#111111', { rotY: car.heading });
+  }
+  // Headlights: two small pale lamps on the front face; taillights red.
+  for (const dx of [-1.2, 1.2]) {
+    const [hx, hz] = at(dx, 1.15);
+    renderer.box(hx, base + 1.0, hz, 0.55, 0.45, 0.3, [1.0, 0.95, 0.75], { rotY: car.heading, nofog: true });
+    const [tx, tz] = at(dx, -1.15);
+    renderer.box(tx, base + 1.0, tz, 0.55, 0.45, 0.3, [1.0, 0.15, 0.1], { rotY: car.heading, nofog: true });
   }
   if (car.isPlayer) {
-    renderer.box(car.x, 2.6, car.z, 0.8, 0.5, 0.8, [1.0, 0.85, 0.2], { nofog: true });
+    renderer.box(car.x, base + 2.6, car.z, 0.8, 0.5, 0.8, [1.0, 0.85, 0.2], { nofog: true });
   }
   if (car.isPolice) {
-    renderer.box(car.x, 2.5, car.z, 1.2, 0.5, 1.2, car.lightPhase ? '#ff2222' : '#2266ff', { nofog: true });
+    renderer.box(car.x, base + 2.5, car.z, 1.2, 0.5, 1.2, car.lightPhase ? '#ff2222' : '#2266ff', { nofog: true });
   }
 }
 function shade2(hex) {

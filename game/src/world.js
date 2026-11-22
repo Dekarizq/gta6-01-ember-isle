@@ -1,5 +1,7 @@
 // World generation: city grid, island, volcano, palms, traffic and pedestrians.
 // Deterministic from a seed so screenshots and replays match.
+// Rev2 note: shot staging (shots.js) repositions peds/coins from this
+// world instead of rebuilding it — the city, isle and volcano are unchanged.
 import { CITY, ISLE, VOLCANO, DISTRICTS, FERRY } from './config.js';
 import { makeRng, makeNoise, clamp } from './random.js';
 
@@ -91,9 +93,12 @@ export function buildWorld(seed) {
     });
   }
 
-  // Volcano lava flows: three ribbons down the slopes, precomputed waypoints.
+  // Volcano lava flows: four ribbons down the slopes, precomputed waypoints.
+  // The 1.5 rad flow runs down the face the volcano camera sees, so the
+  // dark cone carries a bright glowing ribbon in the shot (the old three
+  // left that face bare); it sits ~33 m from the lava road, clear of the car.
   const lavaFlows = [];
-  for (const a of [0.4, 2.2, 4.1]) {
+  for (const a of [0.4, 1.5, 2.2, 4.1]) {
     const pts = [];
     for (let t = 0; t <= 1.001; t += 0.125) {
       const r = VOLCANO.craterR + t * (VOLCANO.base - VOLCANO.craterR);
@@ -101,7 +106,7 @@ export function buildWorld(seed) {
         x: VOLCANO.x + Math.cos(a) * r,
         z: VOLCANO.z + Math.sin(a) * r,
         y: volcanoHeightAt(r) + 0.6,
-        w: 3 + Math.sin(t * Math.PI) * 4,
+        w: 4 + Math.sin(t * Math.PI) * 5,
       });
     }
     lavaFlows.push(pts);

@@ -19,6 +19,9 @@ const caps = {
   game_max_bytes: 50331648,
   game_path_max_bytes: 1000,
 };
+// Rev2 note: the caps above are the kit's hard limits — the four new
+// screenshots must each stay under 262144 bytes (the verifier re-takes
+// them at lower JPEG quality until they fit).
 
 function copyDir(src, dst) {
   if (!existsSync(src)) throw new Error(`missing directory: ${src}`);

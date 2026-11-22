@@ -1,5 +1,7 @@
 // Procedural audio: 8 radio stations (WebAudio oscillators, no assets),
 // engine hum, sirens, gunshots and UI blips. Everything is synthesized.
+// Rev2 (2026-11-23): audio untouched by the density revision — the siren()
+// two-tone call is what the 5-star chase shots (wanted >= 2) already play.
 import { RADIO } from './config.js';
 
 const SCALES = {

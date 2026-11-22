@@ -29,6 +29,8 @@ let shotTime = 0;
 if (shotName) {
   applyShot(state, shotName);
   state.freePlay = false;
+  // Rev2: shotTime 12.5 locks every staged shot at golden hour (the game
+  // starts at dayTime 17.4) so the cover chase reads warm, like Rank 1's.
   shotTime = 12.5; // fixed golden-hour moment, deterministic
   window.__shotReady = true;
 }

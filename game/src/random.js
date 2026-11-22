@@ -1,4 +1,6 @@
 // Seeded deterministic random helpers (mulberry32 + value noise).
+// Rev2 note: the same seed must reproduce the same world for every shot —
+// the dossier is byte-identical across runs because of this determinism.
 export function mulberry32(seed) {
   let a = seed >>> 0;
   return function next() {

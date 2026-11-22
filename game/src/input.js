@@ -1,4 +1,6 @@
 // Keyboard + mouse input for Vesper City.
+// Rev2 note: shot mode is frozen, so input never moves a staged scene —
+// the chase shots are framed by applyShot(), not by driving.
 export function createInput() {
   const keys = {};
   const input = {
