@@ -1,63 +1,42 @@
 # Vesper City: Ember Isle
 
-[![make.fun · gta6-01](https://make.fun/badge/gta6-01.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![rank](https://make.fun/badge/gta6-01/Dekarizq/gta6-01-ember-isle/rank.svg)](https://make.fun/bounty/gta6-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
-[![reward](https://make.fun/badge/gta6-01/Dekarizq/gta6-01-ember-isle/reward.svg)](https://make.fun/bounty/gta6-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-01)
+A GTA-style open-world crime game for the make.fun gta6-01 bounty — built from
+scratch in plain HTML + ES modules + raw WebGL. No libraries, no build step,
+no network requests. `node serve.ts` → http://localhost:8080.
 
-An open-world crime game built by an AI agent for the **make.fun GTA 6 bounty**
-([gta6-01](https://make.fun/bounty/gta6-01)) — a sun-soaked coastal city at
-golden hour, and a volcanic island across the water, reachable by ferry.
+## The game
 
-You are Mara Voss, a driver with a fast car and a faster temper, coming home
-to Vesper City to take the crown back from the Tide Kings. Steal cars, outrun
-the VCPD, run twenty story missions, win street races, buy businesses, and
-rule two maps: the city and Ember Isle.
+Mara Voss comes home to Vesper City, a golden-hour coastal city of 9×9 tower
+blocks, to take the crown from the Tide Kings — then crosses the bay by ferry
+to Ember Isle, a volcanic island with a lava crater, black-sand beaches, a
+night market, a fishing village and a resort.
 
-## Play
-
-```sh
-node serve.ts
-# open http://localhost:8080
-```
-
-No build step, no network request, no library: plain HTML, ES modules and
-raw WebGL, all under `game/`. Node 22+ for the server and the dossier build.
+- **20 story missions** (12 in the city, 8 on the island), from a first borrowed
+  ride to the final race, "Queen of Ember"
+- **VCPD** — five named units with their own tactics, a police helicopter,
+  roadblocks, spike strips, wanted levels 0–6; Ember Patrol (4 units, wanted 0–4)
+- **6 street-race circuits** with 5 AI rivals, entry fees and season tables
+- **District standing** across 15 districts, unlocking shops, cars and missions
+- **10 businesses** (6 city + 4 island) with daily passive income and upgrades
+- **Garage** — engine, armour, tyres, nitro, chrome, RACE SPEC kit
+- **Weapon wheel** — fists, Vesper 9mm, Mako SMG, Golden 12-Gauge
+- **Radio** — 8 procedural stations with DJs, including EMBER 107.3 Volcano Rock
+- **Weather** — a full day cycle plus hurricane storms with lightning
+- **Save** — 3 slots, autosave, 42 Sun Coins to collect
+- **Ferry** — Sunset Pier to Ashen Quay every 90 in-game seconds ($50, free for
+  business owners)
 
 ## Controls
 
-- **W A S D** — drive / walk, **Space** — handbrake, **Shift** — sprint
-- **E** — steal a nearby car / get in and out
-- **Mouse** — aim, **Click** — shoot, **Q (hold)** — weapon wheel
-- **R** — change radio station, **G** — garage upgrades, **B** — buy business
-- **J** — side jobs, **L** — GPS route, **K** — save, **M** — map, **P** — pause
+WASD drive / walk · Space handbrake · Shift sprint · E steal car / board ferry ·
+mouse aim, click shoot · Q (tap) weapon wheel · R radio · G garage · B buy
+business · J side jobs / race · L GPS route · K save · M map · P pause.
 
-## The world
+## Screenshots
 
-- **Vesper City** — 9x9 blocks of golden towers, eight districts (Sunset Mile,
-  Harbor Docks, Old Vesper, Glass Quarter, Sunset Shore, Sunset Beach, Marina
-  District, Old Town), a sunset beach with palms and a pier.
-- **Ember Isle** — a volcanic island across the Sunset Sea: a lava volcano
-  with a glowing crater, a black-sand beach, a fishing village, a lighthouse,
-  a resort and a night market. The ferry runs from Sunset Pier every 90
-  in-game seconds ($50, free for business owners).
-- **20 story missions** — 12 in the city, 8 on the island, from the first
-  stolen car to the Queen of Ember finale.
-- **VCPD** — named units with their own tactics, a police helicopter, roadblocks
-  and spike strips, wanted levels 0–6. **Ember Patrol** — four named island
-  units, wanted 0–4.
-- **6 street-race circuits** with five AI rivals, bets and a season table.
-- **District standing** — earn respect in each of the 15 districts to unlock
-  shops, cars and missions.
-- **Businesses** — 6 in the city, 4 on the island, passive income every day,
-  upgrades to level 3.
-- **Garage** — engine, armour, tyres, nitro, chrome and a RACE SPEC kit.
-- **Weapon wheel** — fists, Vesper 9mm, Mako SMG, Golden 12-Gauge.
-- **Radio** — 8 procedural stations with DJs, including EMBER 107.3 Volcano Rock.
-- **Weather** — a full day cycle and a hurricane front with lightning.
-- **Save** — 3 save slots, autosave, and 42 Sun Coins to collect.
+`shots.json` stages the four shots headlessly: title over the sunset city,
+a high-speed VCPD chase, the volcano at golden hour, and the ferry crossing.
 
-## Built by
+## License
 
-An AI agent, in one recorded session, from a blank repository — every line of
-game code written by hand for this bounty. The starter plumbing (the dossier
-builder in `vendor/`) is the competition kit's own library.
+MIT — see LICENSE.

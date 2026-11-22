@@ -1,200 +1,115 @@
-// The HUD for Vesper City: Ember Isle.
-// A dense but slim overlay: cash and health top-left, the mission
-// panel down the left, small chips down the right (radio, weather,
-// businesses, ferry), the minimap bottom-right, the controls hint
-// bottom-left, and the message toast at the bottom centre. Panels are
-// narrow on purpose — nothing overlaps the minimap at 1280x720, and
-// nothing is cut off at the bottom. The HUD never draws in WebGL; it
-// writes text into the DOM and draws the minimap on a 2D canvas.
+// DOM HUD: cash, health, wanted stars, rank, mission panel, speed, radio,
+// toast, weapon wheel, title / pause / busted screens, and a live minimap
+// drawn on a small 2D canvas (city grid, island, ferry, player, cops, marker).
+import { ISLAND, CITY, FERRY_ROUTE } from './config.js';
 
-import { RESPECT_RANKS, CREW } from './config.js';
-import { wantedStars } from './police.js';
+export function createHud() {
+  const root = document.getElementById('hud');
+  const el = {};
+  for (const id of ['cash', 'health', 'wanted', 'rank', 'mission', 'mission-text',
+    'speed', 'radio', 'toast', 'coins', 'clock', 'wheel', 'title', 'pause',
+    'prompt', 'race', 'gps', 'police', 'dialogue']) {
+    el[id] = document.getElementById(id);
+  }
+  const map = document.getElementById('minimap');
+  const mctx = map.getContext('2d');
 
-// The respect rank for a point total.
-export function respectRank(points) {
-  let rank = RESPECT_RANKS[0];
-  for (const r of RESPECT_RANKS) {
-    if (points >= r.at) rank = r;
+  function stars(n) {
+    return '★'.repeat(n) + '☆'.repeat(Math.max(0, 6 - n));
   }
-  const next = RESPECT_RANKS.find((r) => r.at > points);
-  return {
-    name: rank.name,
-    at: rank.at,
-    next: next ? next.name : null,
-    nextAt: next ? next.at : null,
-    progress: next ? Math.round(((points - rank.at) / (next.at - rank.at)) * 100) : 100,
-  };
-}
 
-export function crewLabel() {
-  return `CREW: ${CREW.join(' · ')}`;
-}
+  function drawMap(h) {
+    const W = map.width, H = map.height;
+    mctx.clearRect(0, 0, W, H);
+    // Sea + land.
+    mctx.fillStyle = '#274b7a';
+    mctx.fillRect(0, 0, W, H);
+    const toMap = (x, z) => [((x + 1150) / 1550) * W, ((z + 420) / 840) * H];
+    const [cx0, cy0] = toMap(-CITY.half, -CITY.half);
+    const [cx1, cy1] = toMap(CITY.half, CITY.half);
+    mctx.fillStyle = '#8a7a5c';
+    mctx.fillRect(cx0, cy0, cx1 - cx0, cy1 - cy0);
+    // City grid.
+    mctx.strokeStyle = 'rgba(40,36,30,0.6)';
+    mctx.lineWidth = 1;
+    for (let i = 0; i <= 9; i += 1) {
+      const [gx] = toMap(-CITY.half + i * (2 * CITY.half) / 9, 0);
+      mctx.beginPath(); mctx.moveTo(gx, cy0); mctx.lineTo(gx, cy1); mctx.stroke();
+      const [, gy] = toMap(0, -CITY.half + i * (2 * CITY.half) / 9);
+      mctx.beginPath(); mctx.moveTo(cx0, gy); mctx.lineTo(cx1, gy); mctx.stroke();
+    }
+    // Island.
+    const [ix, iy] = toMap(ISLAND.x, ISLAND.z);
+    mctx.fillStyle = '#5c4a38';
+    mctx.beginPath(); mctx.arc(ix, iy, 16, 0, Math.PI * 2); mctx.fill();
+    mctx.fillStyle = '#ff7a1a';
+    mctx.beginPath(); mctx.arc(ix, iy, 4, 0, Math.PI * 2); mctx.fill();
+    // Ferry route.
+    const [fx0, fy0] = toMap(FERRY_ROUTE.from.x, FERRY_ROUTE.from.z);
+    const [fx1, fy1] = toMap(FERRY_ROUTE.to.x, FERRY_ROUTE.to.z);
+    mctx.strokeStyle = '#ffd76a';
+    mctx.setLineDash([3, 3]);
+    mctx.beginPath(); mctx.moveTo(fx0, fy0); mctx.lineTo(fx1, fy1); mctx.stroke();
+    mctx.setLineDash([]);
+    const [fx, fy] = toMap(h.ferry[0], h.ferry[1]);
+    mctx.fillStyle = '#ffffff';
+    mctx.fillRect(fx - 3, fy - 2, 6, 4);
+    // Mission marker.
+    const [tx, ty] = toMap(h.target[0], h.target[1]);
+    mctx.fillStyle = '#ffd21f';
+    mctx.beginPath(); mctx.arc(tx, ty, 5, 0, Math.PI * 2); mctx.fill();
+    mctx.strokeStyle = '#ffd21f';
+    mctx.beginPath(); mctx.arc(tx, ty, 8 + 2 * Math.sin(Date.now() / 300), 0, Math.PI * 2); mctx.stroke();
+    // Cops.
+    mctx.fillStyle = '#3a86ff';
+    for (const [px, pz] of h.cops) {
+      const [mx, my] = toMap(px, pz);
+      mctx.beginPath(); mctx.arc(mx, my, 3, 0, Math.PI * 2); mctx.fill();
+    }
+    // Player.
+    const [px, py] = toMap(h.player[0], h.player[1]);
+    mctx.fillStyle = '#ff3b30';
+    mctx.beginPath(); mctx.arc(px, py, 4, 0, Math.PI * 2); mctx.fill();
+    mctx.strokeStyle = '#ffffff';
+    mctx.lineWidth = 1.5;
+    mctx.beginPath(); mctx.arc(px, py, 4, 0, Math.PI * 2); mctx.stroke();
+  }
 
-// Build the HUD DOM inside a container element. Returns the element
-// handles the world loop updates every frame.
-export function createHudElements(container) {
-  const el = (tag, cls, parent) => {
-    const d = container.ownerDocument.createElement(tag);
-    if (cls) d.className = cls;
-    (parent || container).appendChild(d);
-    return d;
-  };
-  const hud = {};
-  hud.root = el('div', 'hud');
-  const topLeft = el('div', 'hud-topleft', hud.root);
-  hud.cash = el('div', 'hud-cash', topLeft);
-  hud.health = el('div', 'hud-health', topLeft);
-  hud.wanted = el('div', 'hud-wanted', topLeft);
-  hud.rank = el('div', 'hud-rank', topLeft);
-  hud.mission = el('div', 'hud-mission', hud.root);
-  hud.missionTitle = el('div', 'hud-mission-title', hud.mission);
-  hud.missionStep = el('div', 'hud-mission-step', hud.mission);
-  hud.missionNext = el('div', 'hud-mission-next', hud.mission);
-  const right = el('div', 'hud-right', hud.root);
-  hud.radio = el('div', 'hud-chip', right);
-  hud.weather = el('div', 'hud-chip', right);
-  hud.business = el('div', 'hud-chip', right);
-  hud.ferry = el('div', 'hud-chip', right);
-  hud.police = el('div', 'hud-chip', right);
-  hud.speed = el('div', 'hud-speed', hud.root);
-  hud.controls = el('div', 'hud-controls', hud.root);
-  hud.controls.textContent = 'WASD drive · E steal car · Click shoot · Hold Q weapons · R radio · G garage · B business · J jobs · L GPS · K save';
-  hud.toast = el('div', 'hud-toast', hud.root);
-  hud.wheel = el('div', 'hud-wheel', hud.root);
-  hud.minimap = el('canvas', 'hud-minimap', hud.root);
-  hud.minimap.width = 180;
-  hud.minimap.height = 180;
-  return hud;
-}
+  function update(h, screen) {
+    el.cash.textContent = `$${h.cash.toLocaleString('en-US')}`;
+    el.health.textContent = `♥ ${h.health}`;
+    el.health.style.color = h.health < 30 ? '#ff5a4e' : '#7dff8a';
+    el.wanted.textContent = stars(h.wanted);
+    el.wanted.style.color = h.wanted >= 4 ? '#ff5a4e' : '#ffd21f';
+    el.rank.textContent = h.rank;
+    el.coins.textContent = `☀ ${h.coins}/42`;
+    el.mission.textContent = `${h.mission.id}. ${h.mission.name}`;
+    el['mission-text'].textContent = h.missionText;
+    el.speed.textContent = h.onFoot ? 'ON FOOT' : `${h.speed} km/h`;
+    el.radio.textContent = `${h.station.name} • ${h.station.dj}`;
+    const hh = Math.floor(h.dayT * 24);
+    const mm = Math.floor((h.dayT * 24 - hh) * 60);
+    el.clock.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}${h.storm ? ' ⛈ STORM' : ''}`;
+    el.toast.textContent = h.toast || '';
+    el.toast.style.opacity = h.toast ? '1' : '0';
+    el.race.textContent = h.race ? `RACE ${h.race.name} — CP ${h.race.cp}/${h.race.laps * 6} — ${h.race.time.toFixed(1)}s` : '';
+    el.wheel.textContent = `🔫 ${h.weapon.name}`;
+    el.gps.textContent = `🧭 GPS ${h.gps.dist}m • ${h.gps.dir} to target`;
+    el.dialogue.textContent = h.dialogue || '';
+    if (h.police.length) {
+      el.police.style.display = 'block';
+      el.police.innerHTML = '<b>🚨 VCPD RESPONSE — ' + h.wanted + '★ · ' + h.police.length + ' UNITS</b><br>' +
+        h.police.slice(0, 3).map((u) => `${u.unit} — ${u.tactic} · ${u.dist}m`).join('<br>');
+    } else el.police.style.display = 'none';
+    el.title.style.display = screen === 'title' ? 'flex' : 'none';
+    el.pause.style.display = screen === 'paused' ? 'flex' : 'none';
+    root.style.display = screen === 'title' ? 'none' : 'block';
+    if (screen !== 'title') drawMap(h);
+  }
 
-// Update every HUD text field from the game state. Called once a frame.
-export function updateHud(hud, s) {
-  const rank = respectRank(s.respect);
-  hud.cash.textContent = `$${Math.floor(s.cash).toLocaleString()}`;
-  hud.health.textContent = `HEALTH ${Math.max(0, Math.round(s.health))} · ${s.inCar ? s.carName : 'On foot — press E near a car to steal it'}`;
-  hud.wanted.textContent = `WANTED ${wantedStars(s.wanted)}`;
-  hud.rank.textContent = `${rank.name} · ${s.respect} RESPECT · next ${rank.next || 'MAX'} ${rank.progress}%`;
-  if (s.mission) {
-    hud.missionTitle.textContent = `MISSION ${s.mission.id}/20 · ${s.mission.title.toUpperCase()}`;
-    hud.missionStep.textContent = `STAGE — ${s.missionStep}`;
-    hud.missionNext.textContent = s.missionNext ? `NEXT ${s.missionNext}m` : '';
-  } else {
-    hud.missionTitle.textContent = 'NO MISSION — drive to the next marker';
-    hud.missionStep.textContent = '';
-    hud.missionNext.textContent = '';
+  function showPrompt(text) {
+    el.prompt.textContent = text || '';
   }
-  hud.radio.textContent = s.radioLabel || '';
-  hud.weather.textContent = s.weatherLabel || '';
-  hud.business.textContent = s.businessLabel || '';
-  hud.ferry.textContent = s.ferryLabel || '';
-  hud.police.textContent = s.policeLabel || '';
-  hud.speed.textContent = s.inCar ? `${Math.round(Math.abs(s.speed) * 3.2)}\nKM/H\n${s.carName}` : '0\nKM/H\nON FOOT';
-  if (s.toast) hud.toast.textContent = s.toast;
-  hud.toast.style.opacity = s.toast ? '1' : '0';
-  // The weapon wheel: four slots, the selected one highlighted.
-  if (s.wheelOpen) {
-    hud.wheel.style.display = 'block';
-    hud.wheel.innerHTML = s.wheelRows.map((r) => `<div class="${r.selected ? 'sel' : ''}">${r.index} ${r.name} ${r.ammo}</div>`).join('');
-  } else {
-    hud.wheel.style.display = 'none';
-  }
-}
 
-// -------------------------------------------------------------- minimap
-// The minimap: a 2D top-down view of both maps. City roads are thin
-// lines, the island is a circle with a volcano dot, the sea is blue,
-// the player is a gold dot, the mission target is a pulsing star, the
-// police are red dots and the ferry is a white dot on the water.
-const MAP_BOUNDS = { x0: -300, x1: 1600, z0: -300, z1: 320 };
-
-export function drawMinimap(canvas, s, time) {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  const W = canvas.width;
-  const H = canvas.height;
-  const sx = (x) => ((x - MAP_BOUNDS.x0) / (MAP_BOUNDS.x1 - MAP_BOUNDS.x0)) * W;
-  const sz = (z) => ((z - MAP_BOUNDS.z0) / (MAP_BOUNDS.z1 - MAP_BOUNDS.z0)) * H;
-  ctx.fillStyle = '#1a2a3a';
-  ctx.fillRect(0, 0, W, H);
-  // The sea.
-  ctx.fillStyle = '#274b6d';
-  ctx.fillRect(sx(280), 0, sx(990) - sx(280), H);
-  // The city ground.
-  ctx.fillStyle = '#3a3230';
-  ctx.fillRect(sx(-230), sz(-230), sx(230) - sx(-230), sz(230) - sz(-230));
-  // City roads.
-  ctx.strokeStyle = '#5a5148';
-  ctx.lineWidth = 1;
-  for (const c of s.roadLines || []) {
-    ctx.beginPath();
-    ctx.moveTo(sx(c), sz(-230));
-    ctx.lineTo(sx(c), sz(230));
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(sx(-230), sz(c));
-    ctx.lineTo(sx(230), sz(c));
-    ctx.stroke();
-  }
-  // The island: a dark circle with a lava dot.
-  ctx.fillStyle = '#2e2a28';
-  ctx.beginPath();
-  ctx.arc(sx(1250), sz(0), 24, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#ff5510';
-  ctx.beginPath();
-  ctx.arc(sx(1250), sz(0), 3, 0, Math.PI * 2);
-  ctx.fill();
-  // The ferry.
-  if (s.ferry) {
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(sx(s.ferry.x), sz(s.ferry.z), 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // The mission target: a pulsing gold star.
-  if (s.missionTarget) {
-    const pulse = 3 + Math.sin((time || 0) * 5) * 1.5;
-    ctx.fillStyle = '#ffd166';
-    ctx.beginPath();
-    ctx.arc(sx(s.missionTarget.x), sz(s.missionTarget.z), pulse, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // Police dots.
-  ctx.fillStyle = '#ff3355';
-  for (const c of s.policeDots || []) {
-    ctx.beginPath();
-    ctx.arc(sx(c.x), sz(c.z), 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // The player: a gold dot with a direction tick.
-  ctx.fillStyle = '#ffd166';
-  ctx.beginPath();
-  ctx.arc(sx(s.x), sz(s.z), 3.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#ffd166';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(sx(s.x), sz(s.z));
-  ctx.lineTo(sx(s.x + Math.sin(s.angle) * 12), sz(s.z + Math.cos(s.angle) * 12));
-  ctx.stroke();
-  // The GPS route, when one is set.
-  if (s.route && s.route.length > 1) {
-    ctx.strokeStyle = '#ffd166';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(sx(s.x), sz(s.z));
-    for (const p of s.route) ctx.lineTo(sx(p.x), sz(p.z));
-    ctx.stroke();
-  }
-}
-
-// The title screen lines: the game name, the subtitle and the prompt.
-export function titleLines() {
-  return {
-    title: 'VESPER CITY',
-    subtitle: 'EMBER ISLE',
-    tagline: 'A golden-hour open world. Twenty missions. One volcano. One crown.',
-    prompt: 'Press ENTER or click to start · WASD to drive · E to steal a car',
-    stats: '20 story missions · 8 radio stations · ferry to Ember Isle · 6 street races',
-  };
+  return { update, showPrompt };
 }

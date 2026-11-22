@@ -1,51 +1,84 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:,">
-<title>Vesper City: Ember Isle — a make.fun GTA 6 bounty entry</title>
+<title>Vesper City: Ember Isle — a GTA-style open world</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1210; font-family: 'Segoe UI', system-ui, sans-serif; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  #hud { position: fixed; inset: 0; pointer-events: none; color: #f5e6c8; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
-  .hud-topleft { position: absolute; top: 12px; left: 12px; }
-  .hud-cash { font-size: 30px; font-weight: 800; color: #ffd166; letter-spacing: 1px; }
-  .hud-health { font-size: 13px; margin-top: 2px; color: #e8dcc0; }
-  .hud-wanted { font-size: 15px; font-weight: 700; color: #ff5a5a; margin-top: 2px; }
-  .hud-rank { font-size: 13px; color: #ffd166; margin-top: 2px; }
-  .hud-mission { position: absolute; top: 150px; left: 12px; width: 300px; background: rgba(20,12,8,.72); border: 1px solid rgba(255,209,102,.5); border-radius: 8px; padding: 10px 12px; }
-  .hud-mission-title { font-size: 14px; font-weight: 800; color: #ffd166; }
-  .hud-mission-step { font-size: 13px; margin-top: 4px; line-height: 1.35; }
-  .hud-mission-next { font-size: 12px; color: #9fd8ff; margin-top: 4px; }
-  .hud-right { position: absolute; top: 12px; right: 12px; width: 260px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
-  .hud-chip { background: rgba(20,12,8,.72); border: 1px solid rgba(255,209,102,.35); border-radius: 6px; padding: 5px 9px; font-size: 12px; text-align: right; max-width: 260px; }
-  .hud-speed { position: absolute; bottom: 12px; left: 12px; font-size: 22px; font-weight: 800; color: #ffd166; white-space: pre-line; line-height: 1.1; }
-  .hud-controls { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #d8c8a8; background: rgba(20,12,8,.6); padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
-  .hud-toast { position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%); max-width: 640px; background: rgba(20,12,8,.85); border: 1px solid rgba(255,209,102,.6); border-radius: 8px; padding: 9px 14px; font-size: 14px; text-align: center; transition: opacity .3s; }
-  .hud-wheel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; background: rgba(20,12,8,.85); border: 1px solid rgba(255,209,102,.6); border-radius: 10px; padding: 12px 16px; font-size: 15px; line-height: 1.7; }
-  .hud-wheel .sel { color: #ffd166; font-weight: 800; }
-  .hud-minimap { position: absolute; bottom: 12px; right: 12px; width: 180px; height: 180px; border: 2px solid rgba(255,209,102,.7); border-radius: 8px; background: #1a2a3a; }
-  #title { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #f5e6c8; background: linear-gradient(180deg, rgba(26,10,4,.55), rgba(26,10,4,.82)); pointer-events: none; }
-  #title-name { font-size: 72px; font-weight: 900; letter-spacing: 6px; color: #ffd166; text-shadow: 0 4px 24px rgba(0,0,0,.9); }
-  #title-sub { font-size: 34px; font-weight: 700; letter-spacing: 12px; color: #ff8c42; margin-top: 4px; }
-  #title-tag { font-size: 17px; margin-top: 18px; color: #f5e6c8; max-width: 620px; line-height: 1.5; }
-  #title-prompt { font-size: 15px; margin-top: 28px; color: #ffd166; font-weight: 700; animation: blink 1.6s infinite; }
-  #title-stats { font-size: 13px; margin-top: 14px; color: #d8c8a8; }
-  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #sim-result { display: none; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  .panel { position: absolute; background: rgba(10,8,12,.55); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 8px 12px; }
+  #cash { top: 14px; right: 16px; font-size: 26px; font-weight: 800; color: #7dff8a; }
+  #health { top: 58px; right: 16px; font-size: 16px; font-weight: 700; }
+  #wanted { top: 84px; right: 16px; font-size: 20px; letter-spacing: 2px; }
+  #rank { top: 116px; right: 16px; font-size: 13px; color: #ffd76a; font-weight: 700; }
+  #clock { top: 14px; left: 16px; font-size: 16px; font-weight: 700; }
+  #coins { top: 44px; left: 16px; font-size: 15px; font-weight: 700; color: #ffd21f; }
+  #mission { top: 78px; left: 16px; font-size: 15px; font-weight: 800; color: #ffd76a; max-width: 340px; }
+  #mission-text { top: 108px; left: 16px; font-size: 13px; max-width: 340px; line-height: 1.35; }
+  #gps { top: 14px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: 700; color: #7dd8ff; }
+  #police { top: 148px; left: 16px; font-size: 13px; line-height: 1.5; max-width: 340px; border-color: rgba(255,90,78,.6); }
+  #police b { color: #ff8a80; }
+  #dialogue { position: absolute; bottom: 230px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 600; color: #bfe3ff; background: rgba(10,8,12,.6); padding: 8px 16px; border-radius: 8px; max-width: 640px; text-align: center; }
+  #speed { bottom: 16px; right: 16px; font-size: 24px; font-weight: 800; }
+  #radio { bottom: 16px; left: 16px; font-size: 14px; font-weight: 700; }
+  #wheel { bottom: 52px; right: 16px; font-size: 14px; }
+  #toast { bottom: 110px; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 700; color: #ffd76a; background: rgba(10,8,12,.6); padding: 8px 16px; border-radius: 8px; transition: opacity .3s; }
+  #race { bottom: 150px; left: 50%; transform: translateX(-50%); font-size: 15px; font-weight: 700; color: #7dd8ff; }
+  #prompt { bottom: 190px; left: 50%; transform: translateX(-50%); font-size: 14px; color: #eee; }
+  #minimap { position: absolute; right: 16px; bottom: 92px; width: 220px; height: 120px; border: 2px solid rgba(255,255,255,.5); border-radius: 8px; background: #274b7a; }
+  .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: radial-gradient(ellipse at 50% 70%, rgba(20,8,4,.25), rgba(10,4,2,.72)); }
+  .screen h1 { font-size: 64px; margin: 0; letter-spacing: 6px; color: #ffd76a; text-shadow: 0 4px 0 #7a2d12, 0 8px 24px rgba(0,0,0,.9); }
+  .screen h2 { font-size: 30px; margin: 4px 0 18px; letter-spacing: 10px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.9); }
+  .screen p { font-size: 17px; color: #ffe9c4; max-width: 560px; line-height: 1.5; margin: 6px 0; }
+  .screen .keys { font-size: 13px; color: #d8d8d8; }
+  .screen .cta { font-size: 20px; font-weight: 800; color: #7dff8a; margin-top: 18px; animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<div id="hud"></div>
-<div id="title">
-  <div id="title-name">VESPER CITY</div>
-  <div id="title-sub">EMBER ISLE</div>
-  <div id="title-tag">A golden-hour open world. Twenty missions. One volcano. One crown.</div>
-  <div id="title-prompt">Press ENTER or click to start · WASD to drive · E to steal a car</div>
-  <div id="title-stats">20 story missions · 8 radio stations · ferry to Ember Isle · 6 street races</div>
+<canvas id="game" aria-label="Vesper City: Ember Isle — drive, steal cars, outrun the VCPD, take the ferry to the volcano island"></canvas>
+<div id="flash"></div>
+<div id="hud" style="display:none">
+  <div class="panel" id="cash">$500</div>
+  <div class="panel" id="health">♥ 100</div>
+  <div class="panel" id="wanted">☆☆☆☆☆☆</div>
+  <div class="panel" id="rank">Street Rookie</div>
+  <div class="panel" id="clock">17:16</div>
+  <div class="panel" id="coins">☀ 0/42</div>
+  <div class="panel" id="mission">1. First Borrowed Ride</div>
+  <div class="panel" id="mission-text"></div>
+  <div class="panel" id="gps">🧭 GPS — to target</div>
+  <div class="panel" id="police" style="display:none"></div>
+  <div id="dialogue"></div>
+  <div class="panel" id="speed">ON FOOT</div>
+  <div class="panel" id="radio">VESPER FM 88.1 • DJ Sol</div>
+  <div class="panel" id="wheel">🔫 Vesper 9mm</div>
+  <div id="toast"></div>
+  <div id="race"></div>
+  <div id="prompt"></div>
+  <canvas id="minimap" width="220" height="120"></canvas>
 </div>
-<script type="module" src="./main.js"></script>
+<div class="screen" id="title">
+  <h1>VESPER CITY</h1>
+  <h2>EMBER ISLE</h2>
+  <p>Mara Voss is home. Steal cars, outrun the VCPD, build an empire across the
+  bay — and take the crown from the Tide Kings on a volcano island.</p>
+  <p>20 story missions • 6 street races • 10 businesses • wanted 0–6 • 8 radio stations • 42 Sun Coins</p>
+  <p class="keys">WASD drive / walk • Space handbrake • Shift sprint • E steal car / board ferry • Click shoot • Q weapon • R radio • G garage • B business • J race • L GPS • K save • M map • P pause</p>
+  <p class="cta">Press ENTER or click to start</p>
+</div>
+<div class="screen" id="pause" style="display:none">
+  <h2>PAUSED</h2>
+  <p>The city waits for you.</p>
+  <p class="cta">Press P to resume</p>
+</div>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="sim-result"></div>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

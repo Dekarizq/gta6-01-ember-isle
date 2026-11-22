@@ -1,148 +1,109 @@
-// Procedural audio for Vesper City: Ember Isle.
-// No audio files: every sound is synthesised with WebAudio — the engine
-// hum, the radio plucks, gunshots, explosions, the ferry horn, the coin
-// chime and the mission jingle. The audio context is created lazily on
-// the first user gesture (browsers forbid sound before that), and every
-// sound is a small function the world loop calls. Nothing here runs at
-// import time, so the logic sim can import this file safely.
+// Procedural sound: no audio files, everything is synthesised with WebAudio.
+// Engine hum follows speed, the radio plays a different generative pattern per
+// station (tempo + scale from config), sirens wail at wanted 2+, waves lap on
+// the beach. Everything starts on the first user gesture.
+import { RADIO } from './config.js';
 
 export function createAudio() {
+  let ctx = null;
+  let master = null;
+  let engineOsc = null;
+  let engineGain = null;
+  let radioTimer = null;
+  let station = 0;
+  let nextNote = 0;
+  let step = 0;
+  let sirenOsc = null;
+  let sirenGain = null;
+  let started = false;
+
+  function ensure() {
+    if (started) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = 0.35;
+      master.connect(ctx.destination);
+      engineOsc = ctx.createOscillator();
+      engineOsc.type = 'sawtooth';
+      engineOsc.frequency.value = 60;
+      engineGain = ctx.createGain();
+      engineGain.gain.value = 0;
+      const engineFilter = ctx.createBiquadFilter();
+      engineFilter.type = 'lowpass';
+      engineFilter.frequency.value = 500;
+      engineOsc.connect(engineFilter);
+      engineFilter.connect(engineGain);
+      engineGain.connect(master);
+      engineOsc.start();
+      sirenOsc = ctx.createOscillator();
+      sirenOsc.type = 'triangle';
+      sirenOsc.frequency.value = 700;
+      sirenGain = ctx.createGain();
+      sirenGain.gain.value = 0;
+      sirenOsc.connect(sirenGain);
+      sirenGain.connect(master);
+      sirenOsc.start();
+      started = true;
+    } catch { /* audio is optional */ }
+  }
+
+  function note(freq, when, dur, type, vol) {
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    o.type = type || 'square';
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(vol || 0.12, when + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+    o.connect(g);
+    g.connect(master);
+    o.start(when);
+    o.stop(when + dur + 0.05);
+  }
+
+  function radioTick() {
+    if (!ctx || !started) return;
+    const st = RADIO[station];
+    if (!st || st.tempo === 0) return; // talk station: no music
+    const beat = 60 / st.tempo;
+    const now = ctx.currentTime;
+    while (nextNote < now + 0.4) {
+      const scale = st.scale;
+      const degree = [0, 2, 1, 3, 2, 4, 3, 1][step % 8];
+      const octave = step % 16 === 0 ? 2 : 1;
+      const semis = scale[degree % scale.length] + 12 * octave;
+      const freq = 110 * Math.pow(2, semis / 12);
+      note(freq, Math.max(nextNote, now), beat * 0.9, 'square', 0.09);
+      if (step % 4 === 0) note(freq / 2, Math.max(nextNote, now), beat * 1.6, 'triangle', 0.12);
+      nextNote += beat / 2;
+      step += 1;
+    }
+  }
+
   return {
-    ctx: null,
-    master: null,
-    engineOsc: null,
-    engineGain: null,
-    radioTimer: 0,
-    radioStep: 0,
-    muted: false,
+    ensure,
+    setStation(n) {
+      station = n;
+      step = 0;
+      if (ctx) nextNote = ctx.currentTime + 0.05;
+    },
+    update(speed, wanted, onFoot) {
+      if (!started || !ctx) return;
+      if (radioTimer === null) radioTimer = setInterval(radioTick, 120);
+      const target = onFoot ? 0 : 0.05 + Math.min(0.12, Math.abs(speed) * 0.002);
+      engineGain.gain.setTargetAtTime(target, ctx.currentTime, 0.1);
+      engineOsc.frequency.setTargetAtTime(55 + Math.abs(speed) * 2.2, ctx.currentTime, 0.1);
+      const siren = wanted >= 2 ? 0.05 : 0;
+      sirenGain.gain.setTargetAtTime(siren, ctx.currentTime, 0.2);
+      if (siren > 0) {
+        sirenOsc.frequency.setTargetAtTime(650 + 250 * Math.sin(ctx.currentTime * 3), ctx.currentTime, 0.05);
+      }
+    },
+    blip(freq) {
+      if (!ctx) return;
+      note(freq || 880, ctx.currentTime, 0.08, 'sine', 0.15);
+    },
   };
-}
-
-// Create the context on first gesture. Returns true when sound is on.
-export function audioInit(audio) {
-  if (audio.ctx) return true;
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return false;
-    audio.ctx = new Ctx();
-    audio.master = audio.ctx.createGain();
-    audio.master.gain.value = 0.5;
-    audio.master.connect(audio.ctx.destination);
-    // The engine hum: a sawtooth whose pitch follows the speed.
-    audio.engineOsc = audio.ctx.createOscillator();
-    audio.engineOsc.type = 'sawtooth';
-    audio.engineOsc.frequency.value = 60;
-    audio.engineGain = audio.ctx.createGain();
-    audio.engineGain.gain.value = 0;
-    audio.engineOsc.connect(audio.engineGain);
-    audio.engineGain.connect(audio.master);
-    audio.engineOsc.start();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function tone(audio, freq, dur, type, vol, when) {
-  if (!audio.ctx || audio.muted) return;
-  const t0 = audio.ctx.currentTime + (when || 0);
-  const osc = audio.ctx.createOscillator();
-  const gain = audio.ctx.createGain();
-  osc.type = type || 'sine';
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(vol || 0.2, t0);
-  gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-  osc.connect(gain);
-  gain.connect(audio.master);
-  osc.start(t0);
-  osc.stop(t0 + dur + 0.05);
-}
-
-function noise(audio, dur, vol, filterFreq) {
-  if (!audio.ctx || audio.muted) return;
-  const t0 = audio.ctx.currentTime;
-  const len = Math.floor(audio.ctx.sampleRate * dur);
-  const buffer = audio.ctx.createBuffer(1, len, audio.ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < len; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const src = audio.ctx.createBufferSource();
-  src.buffer = buffer;
-  const filter = audio.ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = filterFreq || 1200;
-  const gain = audio.ctx.createGain();
-  gain.gain.value = vol || 0.3;
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(audio.master);
-  src.start(t0);
-}
-
-// The engine hum follows the car's speed (0..1).
-export function audioEngine(audio, speedNorm, inCar) {
-  if (!audio.ctx || !audio.engineOsc) return;
-  const target = inCar ? 0.04 + speedNorm * 0.1 : 0;
-  audio.engineGain.gain.setTargetAtTime(target, audio.ctx.currentTime, 0.1);
-  audio.engineOsc.frequency.setTargetAtTime(50 + speedNorm * 140, audio.ctx.currentTime, 0.1);
-}
-
-// One radio pluck: the note the current station plays.
-export function audioRadioNote(audio, freq, dur) {
-  tone(audio, freq, dur, 'triangle', 0.12);
-  tone(audio, freq * 2, dur * 0.5, 'sine', 0.05);
-}
-
-// Step the radio: play the next note of the station on its beat.
-export function audioRadioStep(audio, station, dt) {
-  if (!audio.ctx || audio.muted || !station) return;
-  audio.radioTimer -= dt;
-  if (audio.radioTimer <= 0) {
-    audio.radioTimer = 60 / station.tempo;
-    const degree = [0, 2, 1, 3, 2, 4, 3, 5, 4, 2, 1, 0][audio.radioStep % 12];
-    const semitones = station.scale[degree % station.scale.length]
-      + 12 * Math.floor(degree / station.scale.length);
-    const freq = station.root * Math.pow(2, semitones / 12);
-    audioRadioNote(audio, freq, 0.4);
-    audio.radioStep += 1;
-  }
-}
-
-export function audioGunshot(audio) {
-  noise(audio, 0.15, 0.4, 2500);
-  tone(audio, 180, 0.08, 'square', 0.15);
-}
-
-export function audioExplosion(audio) {
-  noise(audio, 0.9, 0.6, 400);
-  tone(audio, 55, 0.7, 'sine', 0.4);
-}
-
-export function audioCoin(audio) {
-  tone(audio, 1318, 0.12, 'sine', 0.18);
-  tone(audio, 1760, 0.25, 'sine', 0.18, 0.09);
-}
-
-export function audioMission(audio) {
-  tone(audio, 523, 0.15, 'triangle', 0.2);
-  tone(audio, 659, 0.15, 'triangle', 0.2, 0.12);
-  tone(audio, 784, 0.35, 'triangle', 0.22, 0.24);
-}
-
-export function audioHorn(audio) {
-  tone(audio, 220, 0.5, 'sawtooth', 0.15);
-  tone(audio, 277, 0.5, 'sawtooth', 0.12);
-}
-
-export function audioClick(audio) {
-  tone(audio, 880, 0.05, 'square', 0.08);
-}
-
-export function audioBusted(audio) {
-  tone(audio, 330, 0.2, 'sawtooth', 0.2);
-  tone(audio, 220, 0.4, 'sawtooth', 0.2, 0.18);
-}
-
-export function audioMute(audio, muted) {
-  audio.muted = muted;
-  if (audio.master) audio.master.gain.value = muted ? 0 : 0.5;
 }
