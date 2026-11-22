@@ -1,65 +1,76 @@
-// The four screenshot scenes behind ?shot=start|city|volcano|ferry.
-// Each one stages the real game state (no fake renders) and returns the
-// camera to shoot it with. The sun sits west, so every shot camera looks
-// west or north-west: the sunset is in the frame by construction.
-import { ISLAND, FERRY_ROUTE } from './config.js';
+// Screenshot shot presets: fixed cameras and staged scenes for the four
+// dossier screenshots. Deterministic for a given seed.
+import { ISLE, VOLCANO, FERRY } from './config.js';
+import { makeCar } from './game.js';
 
-// Put Mara in the Sunset GT, mid-chase on the Sunset Mile avenue, heading
-// west into the sunset: wanted 2, two traffic cars ahead, one VCPD cruiser
-// closing from behind.
-function stageCity(game) {
-  const s = game.state;
-  const p = s.player;
-  const gt = s.cars.find((c) => c.owned) || s.cars[0];
-  gt.x = 110; gt.z = -126; gt.yaw = -Math.PI / 2; gt.speed = 28;
-  p.car = gt; p.onFoot = false; p.x = gt.x; p.z = gt.z; p.yaw = gt.yaw; p.speed = 28;
-  s.wanted = 2;
-  s.traffic[0].x = 66; s.traffic[0].z = -126; s.traffic[0].yaw = -Math.PI / 2; s.traffic[0].speed = 22;
-  s.traffic[1].x = 38; s.traffic[1].z = -140; s.traffic[1].yaw = -Math.PI / 2; s.traffic[1].speed = 20;
-  if (!s.cops.length) s.cops.push({ ...s.cars[0], model: 5, x: 150, z: -126, yaw: -Math.PI / 2, speed: 30, unit: 'Unit 7 — Vega', tactic: 'ram' });
-  s.cops[0].x = 152; s.cops[0].z = -126; s.cops[0].yaw = -Math.PI / 2; s.cops[0].speed = 30;
-  s.dayT = 0.72;
-  return null; // use the chase camera
-}
+// Each preset stages the world (player car, traffic, police, ferry) and
+// returns a fixed camera { eye, target }.
+export function applyShot(state, name) {
+  const p = state.player;
+  state.shot = name;
+  state.started = true;
+  state.paused = false;
 
-function stageVolcano(game) {
-  const s = game.state;
-  s.dayT = 0.72;
-  s.time = 2.4; // lava pulse high: sparks + smoke lit
-  return {
-    eye: [ISLAND.x - 40, 35, ISLAND.z + 260],
-    target: [ISLAND.x, 78, ISLAND.z],
-  };
-}
-
-function stageFerry(game) {
-  const s = game.state;
-  const f = s.ferry;
-  f.t = 0.45; f.dir = 1;
-  f.x = FERRY_ROUTE.from.x + (FERRY_ROUTE.to.x - FERRY_ROUTE.from.x) * 0.45;
-  f.z = FERRY_ROUTE.from.z + (FERRY_ROUTE.to.z - FERRY_ROUTE.from.z) * 0.45;
-  s.dayT = 0.72;
-  // Camera east of the ferry, low and close, looking west: the big hull fills
-  // the frame, Ember Isle and the volcano rise behind it, the sun hangs left.
-  return {
-    eye: [f.x + 30, 10, f.z + 32],
-    target: [f.x - 15, 8, f.z - 8],
-  };
-}
-
-function stageStart(game) {
-  game.state.dayT = 0.72;
-  // High east of the city, looking west over the skyline to the sunset and sea.
-  return {
-    eye: [360, 130, 170],
-    target: [-600, 35, -80],
-  };
-}
-
-export function stageShot(name, game) {
-  game.reset();
-  if (name === 'city') return { screen: 'play', camera: stageCity(game) };
-  if (name === 'volcano') return { screen: 'play', camera: stageVolcano(game) };
-  if (name === 'ferry') return { screen: 'play', camera: stageFerry(game) };
-  return { screen: 'title', camera: stageStart(game) };
+  if (name === 'start') {
+    // Cover view from the south-east beach, looking north-west: city skyline
+    // centre, sea + sun on the left, volcano far left, palms right foreground.
+    p.x = 230; p.z = 260; p.y = 2; p.heading = 0;
+    p.inCar = false; p.car = null;
+    state.shotCamera = {
+      eye: [230, 18, 260],
+      target: [-420, 40, -320],
+    };
+  } else if (name === 'city') {
+    // High-speed chase on a road lane (x = 23): player in the Sunset GT,
+    // wanted 2, two traffic cars ahead, one VCPD cruiser behind, lit towers
+    // on both sides. Heading PI drives toward -z; the camera sits behind.
+    p.inCar = true;
+    p.x = 23; p.z = -150; p.y = 0; p.heading = Math.PI;
+    p.speed = 34;
+    const car = state.cars.find(c => c.isPlayer) || state.cars[0];
+    car.x = 23; car.z = -150; car.heading = Math.PI; car.speed = 34; car.isPlayer = true;
+    p.car = car;
+    p.wanted = 2;
+    const t1 = state.cars[1], t2 = state.cars[2];
+    if (t1) { t1.x = 23; t1.z = -172; t1.heading = Math.PI; t1.speed = 26; }
+    if (t2) { t2.x = 37; t2.z = -180; t2.heading = Math.PI; t2.speed = 24; }
+    // One VCPD cruiser right behind the player, lights flashing.
+    const cruiser = makeCar('vcpd-cruiser', 23, 0, -132, Math.PI, false, true);
+    cruiser.speed = 36; cruiser.lightPhase = true;
+    state.police = [cruiser];
+    state.cars.push(cruiser);
+    state.shotCamera = {
+      eye: [23, 12, -112],
+      target: [23, 3, -200],
+    };
+  } else if (name === 'volcano') {
+    // Low, close view of the volcano (~280 m) from the south, so the sun
+    // clears the cone's left shoulder: crater ring, lava flows, beacon,
+    // night-market stalls + lanterns in the foreground, sun visible.
+    p.inCar = false; p.car = null;
+    p.x = ISLE.x + 60; p.z = ISLE.z + 150; p.y = 3; p.heading = 0;
+    state.shotCamera = {
+      eye: [ISLE.x + 60, 16, ISLE.z + 220],
+      target: [VOLCANO.x, VOLCANO.height * 0.72, VOLCANO.z],
+    };
+  } else if (name === 'ferry') {
+    // Low, close ferry shot: big hull fills ~40% of the frame, city + isle
+    // behind, sun on the horizon, two more boats on the route.
+    // Keep the ferry docked-in-place so the staged framing never drifts.
+    state.ferry.x = -330; state.ferry.z = 40;
+    state.ferry.heading = -1.98;
+    state.ferry.docked = true;
+    state.ferry.timer = 0;
+    state.ferry.leg = 0; state.ferry.t = 0;
+    p.inCar = false; p.car = null;
+    p.x = -300; p.z = 78; p.y = 2; p.heading = 0;
+    const f = state.ferry;
+    // Camera south-east of the ferry looking north-west: hull fills ~40% of
+    // the frame, sun on the left, volcano on the right, city + isle behind.
+    state.shotCamera = {
+      eye: [f.x + 40, 10, f.z + 45],
+      target: [f.x - 50, 8, f.z - 60],
+    };
+  }
+  return state.shotCamera;
 }

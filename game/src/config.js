@@ -1,193 +1,157 @@
-// Vesper City: Ember Isle — every tuning number, name and table in one place.
-// A golden-hour coastal city (9x9 blocks) plus a volcanic island across the bay,
-// joined by a ferry. Plain HTML + raw WebGL, no libraries, no network requests.
-
-export const STEP = 1 / 60;
-
-// World layout, in metres. City centre at the origin; the sea is west (negative x);
-// Ember Isle sits across the bay to the north-west, reached by ferry from Sunset Pier.
-export const CITY = { blocks: 9, block: 62, street: 22, half: 378 };
-export const SEA_LINE = -400; // x < SEA_LINE is open water
-export const ISLAND = { x: -920, z: 130, radius: 230, volcanoH: 150, dockX: -700, dockZ: 60 };
-export const PIER = { x: -392, z: 0 };
-export const FERRY_ROUTE = { from: { x: -396, z: 0 }, to: { x: -706, z: 64 }, period: 90, fare: 50 };
+// Vesper City: Ember Isle — configuration and content data.
+// All names, districts, missions, vehicles and stations are original.
+export const GAME_TITLE = 'VESPER CITY';
+export const GAME_SUBTITLE = 'EMBER ISLE';
+export const GAME_TAGLINE = 'Take back the city. Rule the island.';
 
 export const FOG = { near: 120, far: 1100 };
 export const SKY = {
-  clear: [0.99, 0.68, 0.38],
-  fog: [0.96, 0.6, 0.42],
-  horizon: [1.0, 0.78, 0.52],
-  dusk: [0.55, 0.32, 0.5],
+  top: [0.72, 0.38, 0.28],
+  mid: [0.85, 0.42, 0.18],
+  horizon: [1.00, 0.62, 0.24],
+  fogColor: [0.62, 0.30, 0.14],
+  sunDir: [-0.86, 0.10, -0.50],
+  sunColor: [1.0, 0.78, 0.42],
 };
-export const SUN = { x: -1180, y: 58, z: -140, disc: 64, halo: 150 };
-
-export const PLAYER = {
-  walkSpeed: 9,
-  runSpeed: 15,
-  accel: 34,
-  brake: 60,
-  grip: 7.5,
-  handbrakeGrip: 1.6,
-  maxReverse: 14,
-  health: 100,
+export const SEA = {
+  bandWarm: [0.88, 0.50, 0.22],
+  bandBlue: [0.16, 0.32, 0.52],
+  bandDeep: [0.10, 0.22, 0.42],
+  glint: [1.0, 0.85, 0.45],
 };
 
+// City: 9x9 blocks, block pitch 46 m, centred on origin.
+export const CITY = { blocks: 9, pitch: 46, road: 14, half: 207 };
 export const DISTRICTS = [
-  { name: 'Sunset Mile', x: 0, z: -300, standing: 0 },
-  { name: 'Harbor Docks', x: -300, z: -180, standing: 0 },
-  { name: 'Old Vesper', x: -300, z: 180, standing: 0 },
-  { name: 'Glass Quarter', x: 60, z: -300, standing: 0 },
-  { name: 'Sunset Shore', x: -330, z: 60, standing: 0 },
-  { name: 'Sunset Beach', x: -330, z: 300, standing: 0 },
-  { name: 'Marina District', x: 180, z: 300, standing: 0 },
-  { name: 'Old Town', x: 300, z: 0, standing: 0 },
-  { name: 'Ember Village', x: -920, z: 260, standing: 0, island: true },
-  { name: 'Black Sand Beach', x: -920, z: -80, standing: 0, island: true },
-  { name: 'Lava Fields', x: -920, z: 130, standing: 0, island: true },
-  { name: 'Night Market', x: -880, z: 330, standing: 0, island: true },
-  { name: 'Ember Resort', x: -760, z: 260, standing: 0, island: true },
-  { name: 'Fisherman\'s Cove', x: -1080, z: 220, standing: 0, island: true },
-  { name: 'Ashen Quay', x: -700, z: 60, standing: 0, island: true },
+  { name: 'Sunset Mile', x: 0, z: -160, color: '#ff9a3c' },
+  { name: 'Harbor Docks', x: -170, z: -40, color: '#4db8ff' },
+  { name: 'Old Vesper', x: -120, z: 120, color: '#ffd27a' },
+  { name: 'Glass Quarter', x: 60, z: -120, color: '#7ae0ff' },
+  { name: 'Sunset Shore', x: 150, z: -20, color: '#ff7a5c' },
+  { name: 'Sunset Beach', x: 190, z: 90, color: '#ffe08a' },
+  { name: 'Marina District', x: -40, z: 170, color: '#5cffc8' },
+  { name: 'Old Town', x: 120, z: 140, color: '#ffb35c' },
+  { name: 'Vesper Heights', x: 40, z: 40, color: '#ff8ad8' },
+  { name: 'Copper Row', x: -160, z: -150, color: '#c98a4b' },
+  { name: 'Palm Court', x: 170, z: -160, color: '#8aff9a' },
+  { name: 'Fisherman Wharf', x: -190, z: 80, color: '#8ab8ff' },
+  { name: 'Ember Gate', x: 0, z: 200, color: '#ff5c3c' },
+  { name: 'Lantern Row', x: -80, z: -40, color: '#ffe066' },
+  { name: 'Tide Market', x: 90, z: -170, color: '#ff6a8a' },
 ];
 
-// 20 story missions: 12 in the city, 8 on the island. Each is data the mission
-// engine drives: a chain of waypoints with a verb (drive / chase / collect /
-// deliver / race / escape) and a cash + standing reward.
-export const MISSIONS = [
-  { id: 1, name: 'First Borrowed Ride', place: 'Sunset Mile', verb: 'drive', cash: 300, text: 'Mara is back in Vesper City. Borrow a car and meet Jax at Sunset Mile.' },
-  { id: 2, name: 'Harbor Heat', place: 'Harbor Docks', verb: 'escape', cash: 500, text: 'VCPD spotted the borrowed GT. Lose the heat at the docks.' },
-  { id: 3, name: 'Glass Quarter Run', place: 'Glass Quarter', verb: 'race', cash: 800, text: 'Beat Rico through the glass towers. First to the Marina wins.' },
-  { id: 4, name: 'Old Town Debts', place: 'Old Town', verb: 'collect', cash: 700, text: 'Collect three debts from Old Town shops before the Tide Kings do.' },
-  { id: 5, name: 'The Sunset GT', place: 'Sunset Shore', verb: 'drive', cash: 1200, text: 'Steal back Mara\'s own Sunset GT from the impound on Sunset Shore.' },
-  { id: 6, name: 'Midnight Ferry', place: 'Sunset Beach', verb: 'drive', cash: 900, text: 'Catch the midnight ferry. Do not let the Kings\' spotters see you board.' },
-  { id: 7, name: 'Beachfront Brawl', place: 'Sunset Beach', verb: 'chase', cash: 1100, text: 'Chase down the Kings\' courier along the beachfront.' },
-  { id: 8, name: 'Marina Buyout', place: 'Marina District', verb: 'deliver', cash: 1500, text: 'Deliver the buyout papers to the Marina office before the deadline.' },
-  { id: 9, name: 'VCPD Roadblock', place: 'Harbor Docks', verb: 'escape', cash: 1400, text: 'Smash through the VCPD roadblock on the harbor road. Wanted 4.' },
-  { id: 10, name: 'King\'s Courier', place: 'Old Vesper', verb: 'chase', cash: 1600, text: 'Run the Tide Kings\' courier off the road in Old Vesper.' },
-  { id: 11, name: 'Sunset Mile Grand Prix', place: 'Sunset Mile', verb: 'race', cash: 2500, text: 'Win the Sunset Mile Grand Prix. Six laps, five rivals, one crown.' },
-  { id: 12, name: 'The Ember Ticket', place: 'Sunset Pier', verb: 'drive', cash: 2000, text: 'Buy a ferry ticket and cross to Ember Isle. The Kings own the bay — go fast.' },
-  { id: 13, name: 'Black Sand Landing', place: 'Black Sand Beach', verb: 'drive', cash: 1800, text: 'Land on the black sand and reach Ember Village before the patrol boats.' },
-  { id: 14, name: 'Night Market Deal', place: 'Night Market', verb: 'collect', cash: 2200, text: 'Collect four crates from the night market stalls. Pay no one twice.' },
-  { id: 15, name: 'Volcano Run', place: 'Lava Fields', verb: 'race', cash: 3000, text: 'Race the lava road around the crater. One mistake and you are ash.' },
-  { id: 16, name: 'Fisherman\'s Debt', place: 'Fisherman\'s Cove', verb: 'deliver', cash: 2400, text: 'Deliver medicine to the cove fishermen before the storm hits.' },
-  { id: 17, name: 'Resort Heist', place: 'Ember Resort', verb: 'chase', cash: 3500, text: 'Lift the Kings\' ledger from the resort safe and outrun Ember Patrol.' },
-  { id: 18, name: 'Ashen Quay Standoff', place: 'Ashen Quay', verb: 'escape', cash: 3200, text: 'Hold the quay against the patrol, then escape by ferry at dawn.' },
-  { id: 19, name: 'The Eruption', place: 'Lava Fields', verb: 'escape', cash: 5000, text: 'The volcano blows. Outrun the eruption to the dock. Do not look back.' },
-  { id: 20, name: 'Queen of Ember', place: 'Ember Village', verb: 'chase', cash: 10000, text: 'Final race against the Tide King himself. Win, and Vesper City is yours.' },
-];
+// Ember Isle sits across the strait, west (-x) past the sea.
+export const ISLE = { x: -620, z: -40, radius: 190 };
+export const VOLCANO = { x: -660, z: -70, base: 150, height: 120, craterR: 26 };
 
-// Waypoints per mission (world coords, on streets where the city is —
-// streets run on the 42/126/210/294 grid, blocks sit between them).
-export const MISSION_POINTS = {
-  1: [[-42, -210], [42, -294]],
-  2: [[-294, -126], [-210, -42], [-294, 42]],
-  3: [[126, -210], [210, -126], [126, 210]],
-  4: [[294, -42], [294, 42], [210, 126]],
-  5: [[-294, 42], [-126, 126], [-42, 210]],
-  6: [[-294, 294], [-378, 126], [-392, 0]],
-  7: [[-294, 294], [-126, 294], [42, 294]],
-  8: [[210, 294], [294, 210], [126, 294]],
-  9: [[-294, -126], [-126, -126], [42, -126]],
-  10: [[-294, 210], [-210, 294], [-126, 126]],
-  11: [[-42, -294], [294, -294], [294, 294], [-42, 294], [-294, 294], [-294, -294]],
-  12: [[-210, 42], [-294, 42], [-392, 0]],
-  13: [[-760, 40], [-880, -40], [-920, 220]],
-  14: [[-900, 320], [-840, 340], [-960, 330], [-880, 360]],
-  15: [[-820, 180], [-760, 60], [-1020, 60], [-980, 220]],
-  16: [[-920, 260], [-1020, 200], [-1080, 220]],
-  17: [[-800, 260], [-760, 300], [-780, 220]],
-  18: [[-720, 60], [-700, 120], [-706, 64]],
-  19: [[-860, 130], [-780, 100], [-706, 64]],
-  20: [[-920, 260], [-800, 200], [-920, 100], [-700, 60]],
+export const FERRY = {
+  pier: { x: -215, z: 60 },
+  isleDock: { x: -470, z: -20 },
+  fare: 50, intervalSec: 90, speed: 14,
 };
 
-export const RACES = [
-  { name: 'Sunset Mile GP', laps: 3, entry: 200 },
-  { name: 'Harbor Sprint', laps: 2, entry: 150 },
-  { name: 'Glass Quarter Loop', laps: 3, entry: 250 },
-  { name: 'Beachfront Dash', laps: 2, entry: 150 },
-  { name: 'Volcano Ring', laps: 2, entry: 400 },
-  { name: 'Ember Coast Classic', laps: 3, entry: 350 },
-];
-
-export const BUSINESSES = [
-  { name: 'Sunset Diner', x: 40, z: -260, price: 1500, income: 120, island: false },
-  { name: 'Harbor Warehouse', x: -300, z: -160, price: 2500, income: 200, island: false },
-  { name: 'Glass Tower Office', x: 80, z: -280, price: 4000, income: 320, island: false },
-  { name: 'Marina Boat Rental', x: 200, z: 300, price: 3000, income: 240, island: false },
-  { name: 'Old Town Garage', x: 300, z: 40, price: 2000, income: 160, island: false },
-  { name: 'Beach Bar', x: -320, z: 300, price: 1800, income: 140, island: false },
-  { name: 'Night Market Stall', x: -880, z: 330, price: 2200, income: 180, island: true },
-  { name: 'Ember Resort Suite', x: -760, z: 260, price: 5000, income: 420, island: true },
-  { name: 'Fishing Fleet', x: -1080, z: 220, price: 2800, income: 230, island: true },
-  { name: 'Lava Tour Kiosk', x: -820, z: 180, price: 1600, income: 130, island: true },
-];
+export const PLAYER = { name: 'Mara Voss', startCash: 250, startHealth: 100 };
 
 export const VEHICLES = [
-  { name: 'Sunset GT', top: 62, accel: 34, color: [0.95, 0.62, 0.1] },
-  { name: 'Harbor Van', top: 38, accel: 20, color: [0.7, 0.72, 0.75] },
-  { name: 'Glass Coupe', top: 58, accel: 30, color: [0.15, 0.35, 0.6] },
-  { name: 'Beach Buggy', top: 44, accel: 26, color: [0.95, 0.85, 0.3] },
-  { name: 'Ember Pickup', top: 48, accel: 28, color: [0.6, 0.2, 0.12] },
-  { name: 'VCPD Cruiser', top: 56, accel: 32, color: [0.08, 0.08, 0.1] },
+  { id: 'sunset-gt', name: 'Sunset GT', top: 62, accel: 26, grip: 2.6, color: '#ff5c1f' },
+  { id: 'tide-runner', name: 'Tide Runner', top: 48, accel: 20, grip: 2.2, color: '#2fa8ff' },
+  { id: 'copper-cab', name: 'Copper Cab', top: 38, accel: 14, grip: 1.8, color: '#ffc233' },
+  { id: 'harbor-hauler', name: 'Harbor Hauler', top: 34, accel: 11, grip: 1.5, color: '#7a8a99' },
+  { id: 'ember-rod', name: 'Ember Rod', top: 58, accel: 24, grip: 2.4, color: '#c81e3a' },
+  { id: 'palm-cruiser', name: 'Palm Cruiser', top: 44, accel: 17, grip: 2.0, color: '#2fd8a0' },
+  { id: 'vcpd-cruiser', name: 'VCPD Cruiser', top: 56, accel: 25, grip: 2.7, color: '#1c2f4d' },
+  { id: 'vcpd-interceptor', name: 'VCPD Interceptor', top: 66, accel: 30, grip: 3.0, color: '#101c33' },
+  { id: 'patrol-buggy', name: 'Ember Patrol Buggy', top: 46, accel: 21, grip: 2.3, color: '#5c3a1e' },
 ];
 
 export const WEAPONS = [
-  { name: 'Fists', damage: 10, range: 3, rate: 0.4 },
-  { name: 'Vesper 9mm', damage: 25, range: 90, rate: 0.18 },
-  { name: 'Mako SMG', damage: 14, range: 70, rate: 0.07 },
-  { name: 'Golden 12-Gauge', damage: 70, range: 40, rate: 0.7 },
+  { id: 'fists', name: 'Fists', damage: 8, range: 2.2, rate: 2.4, auto: false },
+  { id: 'vesper-9mm', name: 'Vesper 9mm', damage: 22, range: 60, rate: 5, auto: false },
+  { id: 'mako-smg', name: 'Mako SMG', damage: 14, range: 45, rate: 11, auto: true },
+  { id: 'golden-12', name: 'Golden 12-Gauge', damage: 55, range: 22, rate: 1.4, auto: false },
 ];
 
 export const RADIO = [
-  { name: 'VESPER FM 88.1', dj: 'DJ Sol', genre: 'Sunset Pop', tempo: 112, scale: [0, 2, 4, 7, 9] },
-  { name: 'EMBER 107.3', dj: 'DJ Magma', genre: 'Volcano Rock', tempo: 140, scale: [0, 3, 5, 7, 10] },
-  { name: 'HARBOR 92.5', dj: 'Captain Waves', genre: 'Sea Shanty', tempo: 96, scale: [0, 2, 5, 7, 10] },
-  { name: 'GLASS 101.9', dj: 'Nova', genre: 'Synthwave', tempo: 122, scale: [0, 2, 3, 7, 8] },
-  { name: 'OLD TOWN 76.4', dj: 'Grandma Rosa', genre: 'Jazz', tempo: 84, scale: [0, 3, 5, 6, 10] },
-  { name: 'TIDE 95.7', dj: 'King Tide', genre: 'Hip Hop', tempo: 100, scale: [0, 3, 5, 7, 10] },
-  { name: 'LAVA 99.9', dj: 'Ash', genre: 'Metal', tempo: 160, scale: [0, 1, 3, 6, 8] },
-  { name: 'VESPER TALK 104.2', dj: 'Mara Voss', genre: 'Talk', tempo: 0, scale: [0] },
+  { id: 'sunset-fm', name: 'SUNSET 88.1', genre: 'Golden Hour Pop', dj: 'DJ Sol', bpm: 104, root: 220 },
+  { id: 'ember-rock', name: 'EMBER 107.3', genre: 'Volcano Rock', dj: 'DJ Magma', bpm: 132, root: 110 },
+  { id: 'tide-jazz', name: 'TIDE 92.4', genre: 'Harbor Jazz', dj: 'DJ Blue Note', bpm: 84, root: 174 },
+  { id: 'palm-hiphop', name: 'PALM 95.7', genre: 'Street Hip-Hop', dj: 'MC Coral', bpm: 96, root: 146 },
+  { id: 'glass-electro', name: 'GLASS 101.9', genre: 'Neon Electro', dj: 'DJ Prism', bpm: 122, root: 196 },
+  { id: 'old-vesper', name: 'OLD VESPER 76.5', genre: 'Classic Vesper', dj: 'Auntie Rosa', bpm: 76, root: 164 },
+  { id: 'market-cumbia', name: 'MARKET 99.2', genre: 'Night Market Cumbia', dj: 'DJ Lantern', bpm: 112, root: 207 },
+  { id: 'storm-talk', name: 'STORM TALK 104.4', genre: 'News & Storm Watch', dj: 'Vera Gale', bpm: 0, root: 0 },
 ];
 
-export const COP_UNITS = [
-  { name: 'Unit 7 — Vega', tactic: 'ram' },
-  { name: 'Unit 12 — Ortiz', tactic: 'block' },
-  { name: 'Unit 3 — Chen', tactic: 'chase' },
-  { name: 'Unit 21 — Novak', tactic: 'ram' },
-  { name: 'Air One — Reyes', tactic: 'heli' },
-];
-export const ISLAND_PATROL = [
-  { name: 'Patrol 1 — Ika', tactic: 'chase' },
-  { name: 'Patrol 2 — Bara', tactic: 'block' },
-  { name: 'Patrol 3 — Sari', tactic: 'ram' },
-  { name: 'Patrol 4 — Dewa', tactic: 'chase' },
+export const MISSIONS = [
+  { id: 1, title: 'Homecoming', area: 'city', brief: 'Steal your first car on Sunset Mile and lose the tail.', reward: 300, target: 'Sunset Mile' },
+  { id: 2, title: 'Keys to the City', area: 'city', brief: 'Lift the Tide Kings courier sedan from Harbor Docks.', reward: 450, target: 'Harbor Docks' },
+  { id: 3, title: 'Glass Heist', area: 'city', brief: 'Grab the Sunset Diamond from the Glass Quarter vault.', reward: 900, target: 'Glass Quarter' },
+  { id: 4, title: 'Old Vesper Debt', area: 'city', brief: 'Collect three debts across Old Vesper before dawn.', reward: 600, target: 'Old Vesper' },
+  { id: 5, title: 'Beach Run', area: 'city', brief: 'Outrun VCPD along Sunset Beach at wanted level 2.', reward: 700, target: 'Sunset Beach' },
+  { id: 6, title: 'Marina Nights', area: 'city', brief: 'Sink the Kings speedboat deal at the Marina District.', reward: 800, target: 'Marina District' },
+  { id: 7, title: 'Copper Row Payback', area: 'city', brief: 'Torch the Kings chop shop on Copper Row.', reward: 850, target: 'Copper Row' },
+  { id: 8, title: 'Palm Court Drift', area: 'city', brief: 'Win the midnight drift trial on Palm Court.', reward: 1000, target: 'Palm Court' },
+  { id: 9, title: 'Lantern Row Smuggle', area: 'city', brief: 'Smuggle lantern crates through Lantern Row checkpoints.', reward: 950, target: 'Lantern Row' },
+  { id: 10, title: 'Tide Market Takeover', area: 'city', brief: 'Buy out the Tide Market stalls and cut the Kings off.', reward: 1200, target: 'Tide Market' },
+  { id: 11, title: 'The Ferry Ticket', area: 'city', brief: 'Board the Sunset Pier ferry to Ember Isle — $50, one way.', reward: 200, target: 'Sunset Pier' },
+  { id: 12, title: 'Storm Warning', area: 'city', brief: 'Outrun the hurricane front and reach Ember Gate.', reward: 1100, target: 'Ember Gate' },
+  { id: 13, title: 'Black Sand Landing', area: 'isle', brief: 'Land on Ember Isle and meet the fisherfolk of Black Sand.', reward: 500, target: 'Black Sand Beach' },
+  { id: 14, title: 'Lighthouse Signal', area: 'isle', brief: 'Relight the Ember Lighthouse before the patrol arrives.', reward: 900, target: 'Ember Lighthouse' },
+  { id: 15, title: 'Fisher Village Feud', area: 'isle', brief: 'Settle the net war in the fishing village.', reward: 1000, target: 'Fisher Village' },
+  { id: 16, title: 'Resort Raid', area: 'isle', brief: 'Crash the Kings resort party on the north shore.', reward: 1400, target: 'Ember Resort' },
+  { id: 17, title: 'Night Market Fire', area: 'isle', brief: 'Light every lantern stall in the night market.', reward: 1300, target: 'Night Market' },
+  { id: 18, title: 'Crater Run', area: 'isle', brief: 'Drive the lava road to the crater rim — do not stop.', reward: 1800, target: 'Ember Crater' },
+  { id: 19, title: 'The Second Crater', area: 'isle', brief: 'Find the hidden second crater and its Sun Coin cache.', reward: 2200, target: 'Second Crater' },
+  { id: 20, title: 'Queen of Ember', area: 'isle', brief: 'Defeat the Tide Kings at the crater and take the throne.', reward: 5000, target: 'Ember Crater' },
 ];
 
-export const DIALOGUE = {
-  1: 'Jax: "Borrow a car and meet me at Sunset Mile. Quick."',
-  2: 'Dario Kess: "VCPD is on you. Lose them at the docks."',
-  3: 'Rico: "You call that driving? Beat me through the glass towers."',
-  4: 'Lena Voss: "Old Town owes us. Collect every dollar."',
-  5: 'Jax: "That is MY Sunset GT in the impound. Get it back."',
-  6: 'Dario Kess: "Midnight ferry. Do not let the Kings\' spotters see you."',
-  7: 'Lena Voss: "The courier is running. Run him down."',
-  8: 'Dario Kess: "Papers to the Marina office. Before the deadline."',
-  9: 'Jax: "Roadblock on the harbor road. Smash through it."',
-  10: 'Lena Voss: "The courier knows too much. End the run."',
-  11: 'Rico: "Grand Prix. Six laps. Do not embarrass me."',
-  12: 'Dario Kess: "Buy the ticket. Ember Isle is where this ends."',
-  13: 'Jax: "Black sand. Get to the village before the patrol boats."',
-  14: 'Lena Voss: "Four crates. Pay no one twice."',
-  15: 'Rico: "Lava road. One mistake and you are ash."',
-  16: 'Dario Kess: "Medicine to the cove. Before the storm."',
-  17: 'Lena Voss: "The ledger is in the resort safe. Lift it."',
-  18: 'Jax: "Hold the quay till dawn. Then we sail."',
-  19: 'Dario Kess: "The volcano is blowing. RUN."',
-  20: 'Tide King: "You want my crown, Mara? Come and take it."',
-};
+export const POLICE_CITY = [
+  { name: 'Sgt. Reyes', tactic: 'Roadblock ahead, box the player in', unit: 'VCPD-01' },
+  { name: 'Off. Kade', tactic: 'PIT maneuver from the rear quarter', unit: 'VCPD-02' },
+  { name: 'Off. Marlow', tactic: 'Spike strip on the escape route', unit: 'VCPD-03' },
+  { name: 'Sgt. Vane', tactic: 'Helicopter Air One — spotlight and track', unit: 'AIR-ONE' },
+  { name: 'Off. Duarte', tactic: 'Flank through side streets', unit: 'VCPD-05' },
+  { name: 'Off. Solis', tactic: 'Ram at intersections', unit: 'VCPD-06' },
+];
+export const POLICE_ISLE = [
+  { name: 'Warden Ash', tactic: 'Lava-road ambush', unit: 'PATROL-1' },
+  { name: 'Warden Cole', tactic: 'Beach blockade', unit: 'PATROL-2' },
+  { name: 'Warden Flint', tactic: 'Crater rim pursuit', unit: 'PATROL-3' },
+  { name: 'Warden Ember', tactic: 'Night market sweep', unit: 'PATROL-4' },
+];
 
-export const SUN_COINS = 42;
-export const SAVE_KEY = 'vesper-city-ember-isle.save';
-export const BEST_KEY = 'vesper-city-ember-isle.best';
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+export const RACES = [
+  { id: 'mile-sprint', name: 'Sunset Mile Sprint', laps: 3, bet: 200, district: 'Sunset Mile' },
+  { id: 'harbor-loop', name: 'Harbor Loop', laps: 3, bet: 300, district: 'Harbor Docks' },
+  { id: 'glass-gp', name: 'Glass Quarter GP', laps: 4, bet: 500, district: 'Glass Quarter' },
+  { id: 'beach-dash', name: 'Sunset Beach Dash', laps: 2, bet: 250, district: 'Sunset Beach' },
+  { id: 'crater-climb', name: 'Crater Climb', laps: 2, bet: 800, district: 'Ember Crater' },
+  { id: 'isle-ring', name: 'Ember Isle Ring', laps: 3, bet: 600, district: 'Black Sand Beach' },
+];
+export const RIVALS = ['Jax', 'Lena', 'Rook', 'Ivy', 'Dario'];
+
+export const BUSINESSES = [
+  { id: 'sunset-diner', name: 'Sunset Diner', area: 'city', cost: 1500, income: 120, district: 'Sunset Mile' },
+  { id: 'harbor-garage', name: 'Harbor Garage', area: 'city', cost: 3000, income: 260, district: 'Harbor Docks' },
+  { id: 'glass-boutique', name: 'Glass Boutique', area: 'city', cost: 4500, income: 380, district: 'Glass Quarter' },
+  { id: 'beach-bar', name: 'Sunset Beach Bar', area: 'city', cost: 2200, income: 190, district: 'Sunset Beach' },
+  { id: 'market-stall', name: 'Tide Market Stall', area: 'city', cost: 900, income: 80, district: 'Tide Market' },
+  { id: 'old-town-inn', name: 'Old Town Inn', area: 'city', cost: 2600, income: 220, district: 'Old Town' },
+  { id: 'fisher-hut', name: 'Fisher Hut', area: 'isle', cost: 1200, income: 110, district: 'Fisher Village' },
+  { id: 'ember-resort', name: 'Ember Resort', area: 'isle', cost: 8000, income: 700, district: 'Ember Resort' },
+  { id: 'night-market', name: 'Night Market Stall', area: 'isle', cost: 1600, income: 150, district: 'Night Market' },
+  { id: 'lighthouse-cafe', name: 'Lighthouse Cafe', area: 'isle', cost: 2000, income: 170, district: 'Ember Lighthouse' },
+];
+
+export const GARAGE_UPGRADES = [
+  { id: 'engine', name: 'Engine Tune', levels: 3, cost: [400, 900, 1800] },
+  { id: 'armour', name: 'Armour Plating', levels: 3, cost: [350, 800, 1600] },
+  { id: 'tyres', name: 'Racing Tyres', levels: 3, cost: [300, 700, 1400] },
+  { id: 'nitro', name: 'Nitro Boost', levels: 3, cost: [500, 1100, 2200] },
+  { id: 'chrome', name: 'Chrome Finish', levels: 3, cost: [250, 600, 1200] },
+  { id: 'racespec', name: 'RACE SPEC Kit', levels: 1, cost: [5000] },
+];
+
+export const SUN_COINS_TOTAL = 42;
+export const SAVE_SLOTS = 3;
+export const CONTROLS_TEXT = 'WASD drive / walk · SPACE handbrake · SHIFT sprint · E steal / enter car · Mouse aim · Click shoot · Q weapon wheel · R radio · G garage · B business · J side jobs · L GPS · K save · M map · P pause';

@@ -1,41 +1,54 @@
 # Vesper City: Ember Isle
 
-A GTA-style open-world crime game for the make.fun gta6-01 bounty — built from
-scratch in plain HTML + ES modules + raw WebGL. No libraries, no build step,
-no network requests. `node serve.ts` → http://localhost:8080.
+An open-world crime game in the spirit of GTA 6, built from scratch in plain
+HTML + ES modules + raw WebGL — no build step, no network requests, no
+external libraries.
 
-## The game
+**Setting:** Vesper City, a golden-hour coastal city of 9x9 tower blocks and
+8 districts, plus Ember Isle across the strait — a volcanic island with a
+glowing crater, black-sand beaches, a fishing village, a lighthouse, a resort
+and a night market, reached by ferry from Sunset Pier.
 
-Mara Voss comes home to Vesper City, a golden-hour coastal city of 9×9 tower
-blocks, to take the crown from the Tide Kings — then crosses the bay by ferry
-to Ember Isle, a volcanic island with a lava crater, black-sand beaches, a
-night market, a fishing village and a resort.
+**You are Mara Voss**, a driver returning home to take the throne from the
+Tide Kings.
 
-- **20 story missions** (12 in the city, 8 on the island), from a first borrowed
-  ride to the final race, "Queen of Ember"
-- **VCPD** — five named units with their own tactics, a police helicopter,
-  roadblocks, spike strips, wanted levels 0–6; Ember Patrol (4 units, wanted 0–4)
-- **6 street-race circuits** with 5 AI rivals, entry fees and season tables
-- **District standing** across 15 districts, unlocking shops, cars and missions
-- **10 businesses** (6 city + 4 island) with daily passive income and upgrades
-- **Garage** — engine, armour, tyres, nitro, chrome, RACE SPEC kit
-- **Weapon wheel** — fists, Vesper 9mm, Mako SMG, Golden 12-Gauge
-- **Radio** — 8 procedural stations with DJs, including EMBER 107.3 Volcano Rock
-- **Weather** — a full day cycle plus hurricane storms with lightning
-- **Save** — 3 slots, autosave, 42 Sun Coins to collect
-- **Ferry** — Sunset Pier to Ashen Quay every 90 in-game seconds ($50, free for
-  business owners)
+## What is in the game
+
+- 20 story missions (12 in the city, 8 on the isle), ending in "Queen of Ember"
+- VCPD with named units and their own tactics, police helicopter Air One,
+  roadblocks and spike strips; wanted levels 0–6 (Ember Patrol 0–4)
+- 6 street-race circuits with 5 AI rivals, bets and a season table
+- District standing across 15 districts
+- 10 businesses (6 city + 4 isle) with daily passive income and 3 upgrade levels
+- Garage: engine, armour, tyres, nitro, chrome, RACE SPEC kit
+- Weapon wheel: fists, Vesper 9mm, Mako SMG, Golden 12-Gauge
+- Radio: 8 procedural stations with DJs, including EMBER 107.3 Volcano Rock
+- Full day cycle + hurricane storms with lightning
+- 3 save slots, autosave, 42 Sun Coins to collect
+- HUD with cash, health, wanted stars, rank, mission panel, speed, minimap
+  and toasts; title screen, pause and full map
 
 ## Controls
 
-WASD drive / walk · Space handbrake · Shift sprint · E steal car / board ferry ·
-mouse aim, click shoot · Q (tap) weapon wheel · R radio · G garage · B buy
-business · J side jobs / race · L GPS route · K save · M map · P pause.
+WASD drive / walk · SPACE handbrake · SHIFT sprint · E steal / enter car ·
+Mouse aim · Click shoot · Q (hold) weapon wheel · R radio · G garage ·
+B buy business · J side jobs · L GPS route · K save · M map · P pause
+
+## Play
+
+```sh
+node serve.ts
+# open http://localhost:8080
+```
 
 ## Screenshots
 
-`shots.json` stages the four shots headlessly: title over the sunset city,
-a high-speed VCPD chase, the volcano at golden hour, and the ferry crossing.
+Rendered headless from this build (seed 1, 1280x720):
+
+1. `1-start.jpg` — title view over the city and pier
+2. `2-city.jpg` — high-speed chase on Sunset Mile, wanted 2
+3. `3-volcano.jpg` — Ember volcano, lava flows and night market
+4. `4-ferry.jpg` — the Sunset Pier ferry crossing to Ember Isle
 
 ## License
 
