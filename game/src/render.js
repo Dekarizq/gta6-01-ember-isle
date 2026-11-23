@@ -178,9 +178,12 @@ export class Renderer {
         this.quad(p0, p1, q1, q0, c, false);
       }
     }
-    // Flat crater floor, glowing.
+    // Flat crater floor, glowing — Round 11: brighter core plus a wider
+    // halo ring just below it, so the crater reads as molten from the
+    // low volcano-shot camera instead of a flat orange square.
     const cr = baseR * 0.14;
-    this.quad([cx - cr, height, cz - cr], [cx + cr, height, cz - cr], [cx + cr, height, cz + cr], [cx - cr, height, cz + cr], [1.0, 0.45, 0.05], true);
+    this.quad([cx - cr * 1.7, height - 0.4, cz - cr * 1.7], [cx + cr * 1.7, height - 0.4, cz - cr * 1.7], [cx + cr * 1.7, height - 0.4, cz + cr * 1.7], [cx - cr * 1.7, height - 0.4, cz + cr * 1.7], [0.95, 0.32, 0.04], true);
+    this.quad([cx - cr, height, cz - cr], [cx + cr, height, cz - cr], [cx + cr, height, cz + cr], [cx - cr, height, cz + cr], [1.0, 0.58, 0.12], true);
   }
 
   // Sun disc + halo, vertical billboard facing the camera, noFog.
@@ -469,10 +472,18 @@ export function renderFrame(renderer, world, state, time) {
   renderer.cone(v.x, v.z, v.base, v.height, '#6e4a3e', 9);
   // Bright orange crater rim ring, visible from the side. The rim boxes
   // stay small (4.5 m) so they read as a glowing rim, not as spikes.
+  // Round 11 — brighter, chunkier rim: the outer ring is bigger and
+  // hotter, and a second inner ring hugs the crater edge, so the rim
+  // reads as a glowing circle even from the low shot camera.
   for (let i = 0; i < 18; i++) {
     const a = (i / 18) * Math.PI * 2;
     const rx = v.x + Math.cos(a) * (v.craterR + 2), rz = v.z + Math.sin(a) * (v.craterR + 2);
-    renderer.box(rx, v.height - 2, rz, 4.5, 2, 4.5, [1.0, 0.42, 0.06], { nofog: true });
+    renderer.box(rx, v.height - 2, rz, 5.5, 2.6, 5.5, [1.0, 0.52, 0.08], { nofog: true });
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2 + 0.26;
+    const rx = v.x + Math.cos(a) * (v.craterR - 3), rz = v.z + Math.sin(a) * (v.craterR - 3);
+    renderer.box(rx, v.height - 1, rz, 4, 2.2, 4, [1.0, 0.64, 0.14], { nofog: true });
   }
   // Lava flows down three slopes, as glowing ribbons lying ON the cone
   // surface: each segment follows the slope (p.y at one end, q.y at the
@@ -490,23 +501,53 @@ export function renderFrame(renderer, world, state, time) {
         [1.0, 0.38, 0.04], true);
     }
   }
+  // Round 11 — a fifth lava flow, drawn here (not in world.js) down the
+  // slope the volcano-shot camera faces (angle -0.35 rad, between the
+  // car and the crater), so the crater run's foreground slope carries a
+  // bright ribbon too. Cone height is linear in radius: the cone spans
+  // baseR at y=0 to baseR*0.14 at y=height, so y = height*(1-r/base)/0.86.
+  {
+    const fa = -0.35;
+    let prev = null;
+    for (let t = 0; t <= 1.001; t += 0.125) {
+      const r = v.craterR + t * (v.base - v.craterR);
+      const pt = {
+        x: v.x + Math.cos(fa) * r,
+        z: v.z + Math.sin(fa) * r,
+        y: v.height * (1 - r / v.base) / 0.86 + 0.6,
+        w: 4.5 + Math.sin(t * Math.PI) * 5.5,
+      };
+      if (prev) {
+        const dx = pt.x - prev.x, dz = pt.z - prev.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const px = -dz / len * (prev.w / 2), pz = dx / len * (prev.w / 2);
+        renderer.quad(
+          [prev.x - px, prev.y + 0.7, prev.z - pz], [prev.x + px, prev.y + 0.7, prev.z + pz],
+          [pt.x + px, pt.y + 0.7, pt.z + pz], [pt.x - px, pt.y + 0.7, pt.z - pz],
+          [1.0, 0.42, 0.05], true);
+      }
+      prev = pt;
+    }
+  }
   // Wide beacon beam above the crater + two dim side pillars rooted at the rim.
   renderer.box(v.x, v.height + 40, v.z, 5, 80, 5, [1.0, 0.55, 0.15], { nofog: true });
   renderer.box(v.x - 40, v.height + 15, v.z + 20, 6, 30, 6, [0.9, 0.35, 0.1], { nofog: true });
   renderer.box(v.x + 42, v.height + 15, v.z - 18, 6, 30, 6, [0.9, 0.35, 0.1], { nofog: true });
-  // Smoke puffs above the crater, drifting with time. Kept small and
-  // pale so they read as smoke, not as dark blocks over the crater.
-  for (let i = 0; i < 3; i++) {
-    const t = (time * 0.12 + i / 3) % 1;
-    renderer.box(v.x + Math.sin(i * 2.4) * 6 + t * 18, v.height + 6 + t * 26, v.z + Math.cos(i * 1.7) * 6, 5 + t * 6, 4 + t * 5, 5 + t * 6, [0.42, 0.40, 0.38], { nofog: false });
+  // Smoke puffs above the crater, drifting with time. Round 11 — five
+  // puffs now, climbing higher, so the eruption column reads above the
+  // rim instead of hugging it.
+  for (let i = 0; i < 5; i++) {
+    const t = (time * 0.12 + i / 5) % 1;
+    renderer.box(v.x + Math.sin(i * 2.4) * 6 + t * 18, v.height + 8 + t * 38, v.z + Math.cos(i * 1.7) * 6, 5 + t * 7, 4 + t * 6, 5 + t * 7, [0.42, 0.40, 0.38], { nofog: false });
   }
-  // Lava sparks during eruption pulses.
+  // Lava sparks during eruption pulses. Round 11 — more sparks, thrown
+  // wider and higher, so the eruption reads at the frame's top edge.
   const erupting = Math.sin(time * 0.5) > 0.2;
   if (erupting) {
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2 + time;
-      const r = 8 + (i % 4) * 5;
-      renderer.box(v.x + Math.cos(a) * r, v.height + 4 + Math.sin(time * 2 + i) * 8, v.z + Math.sin(a) * r, 1.6, 1.6, 1.6, [1.0, 0.75, 0.2], { nofog: true });
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2 + time;
+      const r = 8 + (i % 5) * 6;
+      renderer.box(v.x + Math.cos(a) * r, v.height + 4 + Math.sin(time * 2 + i) * 10, v.z + Math.sin(a) * r, 2, 2, 2, [1.0, 0.75, 0.2], { nofog: true });
     }
   }
   // Second crater, enlarged, south-east of the main cone (layered too).
@@ -805,21 +846,26 @@ function drawFerry(renderer, ferry, time) {
     put(i * 3.4, -6.05, 0.9, 0.9, 0.3, [1.0, 0.82, 0.35], 3.6, { nofog: true });
   }
   // Cabin: white, shorter than before so the bow deck stays open, with a
-  // dark window band and a blue upper deck with its own windows.
+  // dark window band and a blue upper deck with its own windows. Round 11
+  // — the main cabin windows are lit warm gold now, so the cabin glows
+  // at golden hour instead of reading as a dark stripe.
   put(-2, 0, 16, 5, 9, '#f2ede0', 7.5);
   for (let i = -2; i <= 2; i++) {
-    put(-2 + i * 3, 4.55, 1.6, 1.8, 0.3, '#274b63', 9.2);
-    put(-2 + i * 3, -4.55, 1.6, 1.8, 0.3, '#274b63', 9.2);
+    put(-2 + i * 3, 4.55, 1.6, 1.8, 0.3, [1.0, 0.78, 0.38], 9.2, { nofog: true });
+    put(-2 + i * 3, -4.55, 1.6, 1.8, 0.3, [1.0, 0.78, 0.38], 9.2, { nofog: true });
   }
   put(-4, 0, 12, 3.5, 7, '#3a6a8a', 12.5);
   for (let i = -1; i <= 1; i++) {
     put(-4 + i * 3.4, 3.55, 1.5, 1.5, 0.3, '#cfe8ff', 13.6);
     put(-4 + i * 3.4, -3.55, 1.5, 1.5, 0.3, '#cfe8ff', 13.6);
   }
-  // Funnel with a red band, and an orange lifeboat on the cabin side.
+  // Funnel with a red band, and an orange lifeboat on each cabin side.
+  // Round 11 — a matching second lifeboat on the port side, so the
+  // cabin reads as properly equipped from either camera angle.
   put(12, 0, 3, 9, 3, '#222222', 7.5);
   put(12, 0, 3.2, 1.6, 3.2, '#c81e3a', 13.5);
   put(2, 4.8, 5, 1.6, 1.4, '#ff7a1f', 8.5);
+  put(2, -4.8, 5, 1.6, 1.4, '#ff7a1f', 8.5);
   // Deck rails along both open-deck edges.
   put(-13, 5.8, 8, 0.5, 0.3, '#dddddd', 8.2);
   put(-13, -5.8, 8, 0.5, 0.3, '#dddddd', 8.2);
@@ -832,15 +878,31 @@ function drawFerry(renderer, ferry, time) {
   put(15.5, -4.5, 0.6, 12, 0.6, '#dddddd', 7.5);
   const flagX = f.x + 15.5 * co - (-4.5) * s, flagZ = f.z + 15.5 * s + (-4.5) * co;
   renderer.box(flagX, 20.5, flagZ, 4, 2.4, 0.3, '#ff9a3c', { rotY: f.heading, nofog: true });
-  // Deck lights along the hull top edge.
+  // Deck lights along the hull top edge, both sides now, plus a warm
+  // glow dot on each rail end so the open deck reads as lit at dusk.
+  // Round 11 — the port-side row and rail dots are new.
   for (let i = -3; i <= 3; i++) {
     put(i * 4, 5.2, 1, 1, 1, [1.0, 0.85, 0.4], 7.5, { nofog: true });
+    put(i * 4, -5.2, 1, 1, 1, [1.0, 0.85, 0.4], 7.5, { nofog: true });
   }
-  // Foam wake behind the ferry.
+  for (const sx of [-13, 13]) {
+    for (const sz of [5.8, -5.8]) {
+      put(sx, sz, 0.9, 0.9, 0.9, [1.0, 0.88, 0.5], 8.6, { nofog: true });
+    }
+  }
+  // Foam wake behind the ferry. Round 11 — longer, wider and brighter:
+  // ten puffs trailing further astern, with side streaks fanning out,
+  // so the ferry reads as moving instead of parked on flat water.
   const wx = f.x + Math.sin(f.heading) * 22, wz = f.z + Math.cos(f.heading) * 22;
-  for (let i = 0; i < 6; i++) {
-    const t = i / 6;
-    renderer.box(wx + Math.sin(f.heading) * i * 4, 0.6, wz + Math.cos(f.heading) * i * 4, 10 - t * 4, 0.5, 8 + t * 6, [0.92, 0.95, 0.98], { rotY: f.heading });
+  for (let i = 0; i < 10; i++) {
+    const t = i / 10;
+    renderer.box(wx + Math.sin(f.heading) * i * 5, 0.6, wz + Math.cos(f.heading) * i * 5, 12 - t * 4, 0.6, 9 + t * 8, [0.95, 0.97, 1.0], { rotY: f.heading });
+  }
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 5; i++) {
+      const t = i / 5;
+      renderer.box(wx + Math.sin(f.heading) * i * 5 + Math.cos(f.heading) * side * (7 + t * 6), 0.6, wz + Math.cos(f.heading) * i * 5 - Math.sin(f.heading) * side * (7 + t * 6), 6 - t * 2, 0.5, 3, [0.92, 0.95, 0.98], { rotY: f.heading });
+    }
   }
 }
 
