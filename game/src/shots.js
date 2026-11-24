@@ -88,44 +88,52 @@ export function applyShot(state, name) {
   state.paused = false;
 
   if (name === 'start') {
-    // COVER — the 5-star chase opener. Mission 5/20 Beach Run, wanted 3:
-    // Sunset GT mid-chase, traffic ahead, VCPD on the tail and the flank,
-    // an interceptor ahead-right, Air One overhead with its spotlight,
-    // roadblock + spike strip on the escape route, peds and coins in frame.
+    // COVER — Round 12 restage: the 5-star chase opener, re-staged as a
+    // golden-hour beach chase seen from the side, looking west-northwest
+    // toward the setting sun. Mission 5/20 Beach Run, wanted 3: Sunset GT
+    // mid-chase heading south down the beach road, VCPD cruisers on its
+    // tail to the north, traffic ahead to the south, Air One overhead
+    // with its spotlight, roadblock + spike strip up the road, beachgoers
+    // and coins in frame. (The old canyon staging hid the beach and the
+    // sunset behind towers and left the car a speck on black asphalt.)
     state.missionIndex = 4;
     state.respect = 650;
     state.crew = ['Lena Voss'];
     p.inCar = true;
-    p.x = 23; p.z = -150; p.y = 0; p.heading = Math.PI;
+    p.x = 216; p.z = -10; p.y = 0; p.heading = 0;
     p.speed = 34;
     const car = state.cars.find(c => c.isPlayer) || state.cars[0];
-    car.x = 23; car.y = 0; car.z = -150; car.heading = Math.PI; car.speed = 34; car.isPlayer = true;
+    car.x = 216; car.y = 0; car.z = -10; car.heading = 0; car.speed = 34; car.isPlayer = true;
     p.car = car;
     p.wanted = 3;
     const t1 = state.cars[1], t2 = state.cars[13];
-    if (t1) { t1.x = 23; t1.z = -172; t1.heading = Math.PI; t1.speed = 26; }
-    if (t2) { t2.x = 37; t2.z = -180; t2.heading = Math.PI; t2.speed = 24; }
-    const far = state.cars[14];
-    if (far) { far.x = 9; far.z = -205; far.heading = Math.PI; far.speed = 22; }
+    if (t1) { t1.x = 212; t1.z = 15; t1.heading = 0; t1.speed = 26; }
+    if (t2) { t2.x = 222; t2.z = 32; t2.heading = 0; t2.speed = 24; }
     stagePolice(state, [
-      { id: 'vcpd-cruiser', x: 23, z: -128, heading: Math.PI, speed: 36, lightPhase: true },
-      { id: 'vcpd-cruiser', x: 9, z: -158, heading: Math.PI, speed: 34 },
-      { id: 'vcpd-interceptor', x: 37, z: -185, heading: Math.PI, speed: 38 },
+      { id: 'vcpd-cruiser', x: 216, z: -35, heading: 0, speed: 36, lightPhase: true },
+      { id: 'vcpd-cruiser', x: 206, z: -60, heading: 0, speed: 34 },
+      { id: 'vcpd-interceptor', x: 222, z: -85, heading: 0, speed: 38 },
     ]);
-    // Air One at (48, 48, -205): proven visible in the previous round —
-    // its bright white body + red cheatline (Round 10 repaint) read
-    // through the translucent mission panel, and its beam threads
-    // between the towers. (x = 68 hid it behind the right-hand towers;
-    // the panel is 62% opaque, so the heli still shows.)
-    state.heli = { x: 48, y: 48, z: -205, name: 'AIR-ONE', pilot: 'Sgt. Vane' };
-    state.roadblocks = [{ x: 23, z: -210 }];
-    state.spikeStrips = [{ x: 23, z: -195, heading: Math.PI }];
-    clearLampsNear(state, 23, -108, 16);
-    stagePeds(state, CHASE_PEDS);
-    stageCoins(state, [[20, 2, -175], [26, 2, -190]]);
+    // Air One over the sea to the north-east, high in the frame's upper
+    // right, its beam threading down toward the chase.
+    state.heli = { x: 245, y: 48, z: -75, name: 'AIR-ONE', pilot: 'Sgt. Vane' };
+    state.roadblocks = [{ x: 216, z: -110 }];
+    state.spikeStrips = [{ x: 216, z: -85, heading: Math.PI }];
+    clearPalmsNear(state, 248, 8, 12);
+    clearPalmsNear(state, 216, -10, 18);
+    clearPalmsNear(state, 232, 0, 14);
+    clearLampsNear(state, 248, 8, 14);
+    stagePeds(state, BEACH_PEDS);
+    stageCoins(state, [[214, 2, 2], [220, 2, -18]]);
+    // Round 12, camera iter 2: v2 fixed the palm occlusion and the
+    // player reads now, but Air One's body still sits just outside the
+    // top-right corner (beam only). Move the eye closer (bigger hero
+    // car, ~26 m) and rotate the view further north + aim up, so the
+    // heli pulls inside the frame at the top right and the police line
+    // up centre-right; the player stays left of centre.
     state.shotCamera = {
-      eye: [23, 9, -108],
-      target: [23, 2, -210],
+      eye: [236, 8, 6],
+      target: [180, 11, -78],
     };
   } else if (name === 'city') {
     // Round 10 — WANTED 5 ON SUNSET BEACH, a scene of its own. Mission
