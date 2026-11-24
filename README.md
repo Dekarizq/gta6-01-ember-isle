@@ -90,8 +90,9 @@ node serve.ts
 
 Rendered headless from this build (seed 1, 1280x720):
 
-1. `1-start.jpg` — 5-star chase cover on Sunset Mile: wanted 3, Air One
-   spotlight, roadblock + spike strip, traffic, peds, Mission 5/20
+1. `1-onfoot.jpg` — Mara walks on foot across Sunset Beach at golden
+   hour toward her parked Sunset GT, wanted 1, VCPD cruiser closing in,
+   ferry offshore, Mission 5/20 (Round 13: the on-foot opening shot)
 2. `2-city.jpg` — wanted-5 chase up the Sunset Beach road (Round 10):
    surf and umbrellas on the right, palms and towers on the left, the
    ferry offshore, bright Air One over the sea, Mission 8/20 Palm Court Drift

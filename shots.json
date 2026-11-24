@@ -1,9 +1,9 @@
 {
   "shots": [
     {
-      "file": "1-start.jpg",
+      "file": "1-onfoot.jpg",
       "height": 720,
-      "url": "?shot=start&seed=1",
+      "url": "?shot=onfoot&seed=1",
       "width": 1280
     },
     {

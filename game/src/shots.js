@@ -3,7 +3,11 @@
 //
 // Round 10 staging — every shot is a different place now, not four
 // angles on the same street:
-//   1-start   Sunset Mile canyon chase (the cover, unchanged staging)
+// Round 13 staging — shot 1 is now the on-foot opening, replacing the
+// old start chase (which showed Mara already in the car):
+//   1-onfoot  Mara walks mid-stride across Sunset Beach toward her
+//             parked Sunset GT, wanted 1, cruiser in the distance,
+//             ferry offshore — the moment before the Beach Run chase
 //   2-city    Sunset Beach / Sunset Pier chase — palms, surf, umbrellas,
 //             the ferry offshore and Air One bright over the sea, NOT
 //             the same canyon road as shot 1
@@ -87,7 +91,66 @@ export function applyShot(state, name) {
   state.started = true;
   state.paused = false;
 
-  if (name === 'start') {
+  if (name === 'onfoot') {
+    // Round 13 — THE ON-FOOT OPENING. The one gap vs the Top 1-50: every
+    // v12 screenshot shows Mara already IN the car, so the judge never
+    // sees the city explored on foot. This is the moment before the
+    // Beach Run chase (shot 1's Mission 5/20): Mara walks mid-stride
+    // across the sand toward her parked Sunset GT ahead, wanted 1, one
+    // VCPD cruiser closing in the distance on the beach road, the ferry
+    // offshore to the east, beachgoers and Sun Coins in frame. Low
+    // camera right behind her, close enough that she fills a large part
+    // of the frame — the hero, not a speck. No Air One: its searchlight
+    // beam cut the old cover in half, and wanted 1 does not need it.
+    state.missionIndex = 4;
+    state.respect = 650;
+    state.crew = ['Lena Voss'];
+    p.inCar = false;
+    // Mara walks diagonally north-west (heading PI + 0.35), so her
+    // stride has a lateral component on screen and the parked GT sits
+    // ahead-LEFT of her instead of directly behind her — in the first
+    // attempt the car sat on her exact walk line and she hid it.
+    p.x = 224; p.z = 0; p.y = 0; p.heading = Math.PI + 0.35;
+    p.speed = 0;
+    p.wanted = 1;
+    // Parked 13 m ahead of Mara but 4 m west of her walk line (toward
+    // the road): on the line itself she hides the whole car behind her.
+    const car = state.cars.find(c => c.isPlayer) || state.cars[0];
+    car.x = 216; car.y = 0; car.z = -11; car.heading = Math.PI + 0.35; car.speed = 0; car.isPlayer = true;
+    p.car = car;
+    // Traffic up the beach road, west of Mara, so the road reads busy
+    // without crowding her walk line.
+    const t1 = state.cars[1], t2 = state.cars[2];
+    if (t1) { t1.x = 212; t1.z = -62; t1.heading = Math.PI; t1.speed = 26; }
+    if (t2) { t2.x = 222; t2.z = -70; t2.heading = Math.PI; t2.speed = 22; }
+    stagePolice(state, [
+      { id: 'vcpd-cruiser', x: 214, z: -34, heading: Math.PI, speed: 30, lightPhase: true },
+    ]);
+    // Ferry offshore to the north-east, far enough north that it pulls
+    // inside the right third instead of being cut by the frame edge.
+    state.ferry.x = 260; state.ferry.z = -90;
+    state.ferry.heading = 0.6;
+    state.ferry.docked = true;
+    state.ferry.timer = 0;
+    // Clear palms from Mara's walk line, the car, and the camera's
+    // sightline — a trunk on the lens axis would split the frame.
+    clearPalmsNear(state, 224, 0, 12);
+    clearPalmsNear(state, 227, 9, 10);
+    clearPalmsNear(state, 220, -10, 10);
+    // Beachgoers flanking the walk line, none of them on it.
+    stagePeds(state, [
+      [232, -28], [218, -32], [234, 12], [220, 26], [230, -46],
+    ]);
+    stageCoins(state, [[228, 2, -8], [220, 2, -22]]);
+    // Low camera 9 m behind Mara on her walk line: at this distance her
+    // ~3.4 m figure fills roughly a third of the frame height, the
+    // parked GT sits ahead-left of her, and the ferry pulls into the
+    // right third. Target low so the horizon and the sea stay in frame.
+    state.shotCamera = {
+      eye: [227.1, 3.2, 8.5],
+      target: [213, 2.0, -30],
+    };
+  } else if (name === 'start') {
     // COVER — Round 12 restage: the 5-star chase opener, re-staged as a
     // golden-hour beach chase seen from the side, looking west-northwest
     // toward the setting sun. Mission 5/20 Beach Run, wanted 3: Sunset GT

@@ -608,6 +608,11 @@ export function renderFrame(renderer, world, state, time) {
   // --- Vehicles, pedestrians, coins, police ---
   for (const car of state.cars) drawCar(renderer, car, time);
   for (const ped of state.peds) drawPedestrian(renderer, ped, time);
+  // Round 13 — the player on foot: Mara herself. Before this round the
+  // renderer never drew state.player outside a car, so every on-foot
+  // frame (and the on-foot opening shot) showed an empty beach. Mara
+  // draws whenever she is not in a car, in free play as well as in shots.
+  if (!state.player.inCar) drawMaraOnFoot(renderer, state, time);
   for (const coin of state.coins) {
     if (coin.taken) continue;
     const spin = time * 2 + coin.x;
@@ -774,6 +779,39 @@ function drawPedestrian(renderer, ped, time) {
   // Arms swinging opposite to the legs.
   renderer.box(ped.x + px * 0.55 - dirX * swing, py + 1.6, ped.z + pz * 0.55 - dirZ * swing, 0.26, 0.9, 0.26, ped.shirt);
   renderer.box(ped.x - px * 0.55 + dirX * swing, py + 1.6, ped.z - pz * 0.55 + dirZ * swing, 0.26, 0.9, 0.26, ped.shirt);
+}
+
+// Round 13 — Mara Voss on foot, drawn bigger than the background peds
+// so she reads as the hero in one glance: red jacket #e63946, dark hair
+// with a ponytail, dark jeans, mid-stride at walkPhase 0.9 with arms and
+// legs swinging opposite, and the same long golden-hour shadow as
+// everything else. Same proportions as drawPedestrian, scaled ~1.25x.
+function drawMaraOnFoot(renderer, state, time) {
+  const p = state.player;
+  const py = p.y || 0;
+  const walkPhase = 0.9;
+  const swing = Math.sin(walkPhase) * 0.45;
+  const dirX = Math.sin(p.heading || 0), dirZ = Math.cos(p.heading || 0);
+  const px = -dirZ, pz = dirX; // lateral axis
+  renderer.longShadow(p.x, py + 0.06, p.z, 1.0, 1.0, 3.4);
+  // Legs: dark jeans stepping forward and back along the walk dir, and
+  // offset sideways from each other — from directly behind, a pure
+  // fore/aft stride collapses into one dark pole, so the two legs sit
+  // 0.22 m apart laterally and in different shades, and read as two legs.
+  renderer.box(p.x + px * 0.22 + dirX * swing, py + 0.72, p.z + pz * 0.22 + dirZ * swing, 0.34, 1.45, 0.34, '#1a1a22');
+  renderer.box(p.x - px * 0.22 - dirX * swing, py + 0.72, p.z - pz * 0.22 - dirZ * swing, 0.34, 1.45, 0.34, '#3a3a48');
+  // Torso: the red jacket, with a dark waist band so the block breaks
+  // into jacket and jeans, and the head with dark hair + ponytail.
+  renderer.box(p.x, py + 2.18, p.z, 1.0, 1.6, 1.0, '#e63946');
+  renderer.box(p.x, py + 1.45, p.z, 1.04, 0.28, 1.04, '#7a1f2b');
+  renderer.box(p.x, py + 3.0, p.z, 0.85, 0.85, 0.85, '#c98a5e');
+  renderer.box(p.x, py + 3.42, p.z, 0.9, 0.35, 0.9, '#1e1410');
+  renderer.box(p.x - dirX * 0.5, py + 3.1, p.z - dirZ * 0.5, 0.3, 0.7, 0.3, '#1e1410');
+  // Arms in the red jacket, swinging opposite to the legs — both a
+  // darker red than the torso, so they read as arms flanking the
+  // jacket instead of widening it into one flat block.
+  renderer.box(p.x + px * 0.68 - dirX * swing, py + 2.3, p.z + pz * 0.68 - dirZ * swing, 0.32, 1.3, 0.32, '#c92f3d');
+  renderer.box(p.x - px * 0.68 + dirX * swing, py + 2.3, p.z - pz * 0.68 + dirZ * swing, 0.32, 1.3, 0.32, '#c92f3d');
 }
 
 // Round 10 — Air One repainted bright: white fuselage with a red
